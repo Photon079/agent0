@@ -8,6 +8,7 @@ def create_performance_indexes():
         "CREATE INDEX FOR (s:Skill) ON (s.canonical_name);",
         "CREATE INDEX FOR (j:JobPosting) ON (j.id);",
         "CREATE INDEX FOR (p:Project) ON (p.name);",
+        "CREATE INDEX FOR (e:Experience) ON (e.id);",
     ]
     for s in idxs:
         try:
@@ -70,6 +71,29 @@ def write_candidate_graph(data: dict, normalizer):
                 """,
                 {"pname": proj["name"], "canonical": canonical},
             )
+
+    # Upsert corporate experiences and HAD edges
+    for exp in data.get("experiences", []):
+        exp_id = exp.get("id") or f"{c['id']}:exp:{exp.get('title')}:{exp.get('company')}"
+        query(
+            """
+            MERGE (e:Experience {id: $id})
+            SET e.title = $title, e.company = $company, e.start_date = $start_date,
+                e.end_date = $end_date, e.description = $description
+            WITH e
+            MATCH (c:Candidate {id: $cid})
+            MERGE (c)-[:HAD]->(e)
+            """,
+            {
+                "id": str(exp_id),
+                "title": exp.get("title") or "",
+                "company": exp.get("company") or "",
+                "start_date": str(exp.get("start_date") or ""),
+                "end_date": str(exp.get("end_date") or ""),
+                "description": exp.get("description") or "",
+                "cid": c["id"],
+            },
+        )
 
 
 def write_job_posting(job: dict, normalizer):

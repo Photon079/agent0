@@ -92,6 +92,11 @@ def run_queries(candidate_id: str, job_id: str):
     res2 = query(gap_q, {"candidate_id": candidate_id, "job_id": job_id})
     print("gap result:", res2.result_set)
 
+    print("Running broadened evidence retrieval (projects + corporate experience)...")
+    from career_graph.repository_cypher import evidence_for_skill_for_candidate
+    res3 = evidence_for_skill_for_candidate(candidate_id, ["PostgreSQL", "Python"])
+    print("evidence result:", res3.result_set)
+
 
 if __name__ == "__main__":
     create_performance_indexes()

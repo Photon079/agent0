@@ -75,4 +75,10 @@ class CandidateIngestor:
             return
         from .falkor_mirror import mirror_candidate
 
-        mirror_candidate(f"cand:{candidate.id}", candidate.name, parsed.get("skills", []), parsed.get("projects", []))
+        mirror_candidate(
+            f"cand:{candidate.id}",
+            candidate.name,
+            parsed.get("skills", []),
+            parsed.get("projects", []),
+            experiences=parsed.get("experiences", []),
+        )

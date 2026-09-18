@@ -27,12 +27,13 @@ def _primitive(value):
         return str(value)
 
 
-def mirror_candidate(candidate_id, name, skills, projects):
-    """Mirror a candidate + skills/projects into FalkorDB.
+def mirror_candidate(candidate_id, name, skills, projects, experiences=None):
+    """Mirror a candidate + skills/projects/experiences into FalkorDB.
 
     candidate_id: string id (e.g. "cand:123")
     skills:       [{name, confidence, evidence}]
     projects:     [{name, description, url, commit_count, source, skills_used}]
+    experiences:  [{title, company, start_date, end_date, description}]
     """
     if career_graph is None:
         return
@@ -56,6 +57,7 @@ def mirror_candidate(candidate_id, name, skills, projects):
                     }
                     for p in projects
                 ],
+                "experiences": experiences or [],
             },
             an,
         )
