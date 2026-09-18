@@ -1,0 +1,1 @@
+"""Shared ingestion entry points used by the SQS consumers and scripts."""

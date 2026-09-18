@@ -1,0 +1,46 @@
+# Environment / secrets
+.env
+.env.*
+*.env
+!*.env.example
+aws_live.env
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+*.egg
+build/
+dist/
+.eggs/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Test / tooling caches
+.pytest_cache/
+.coverage_cache/
+.tox/
+.nox/
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Generated scrape output (S3 bucket stand-in)
+fixtures/scraped/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/

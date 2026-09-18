@@ -1,0 +1,54 @@
+{
+  "jobs": [
+    {
+      "id": "job-001",
+      "title": "Backend Engineer Intern",
+      "company": "Acme Corp",
+      "url": "https://acme.example/jobs/1",
+      "requirements": [
+        {"name": "Postgres DB", "importance": 1.0},
+        {"name": "FastAPI framework", "importance": 0.8}
+      ]
+    },
+    {
+      "id": "job-002",
+      "title": "Frontend Engineer",
+      "company": "Beta LLC",
+      "url": "https://beta.example/jobs/2",
+      "requirements": [
+        {"name": "ReactJS", "importance": 1.0},
+        {"name": "TypeScript", "importance": 0.9}
+      ]
+    },
+    {
+      "id": "job-003",
+      "title": "SRE Intern",
+      "company": "OpsCo",
+      "url": "https://opsco.example/jobs/3",
+      "requirements": [
+        {"name": "Docker", "importance": 1.0},
+        {"name": "Redis", "importance": 0.8}
+      ]
+    },
+    {
+      "id": "job-004",
+      "title": "Data Engineer",
+      "company": "DataCorp",
+      "url": "https://datacorp.example/jobs/4",
+      "requirements": [
+        {"name": "PostgresQL", "importance": 1.0},
+        {"name": "AWS Lambda", "importance": 0.7}
+      ]
+    },
+    {
+      "id": "job-005",
+      "title": "Fullstack Intern",
+      "company": "Stacked",
+      "url": "https://stacked.example/jobs/5",
+      "requirements": [
+        {"name": "React", "importance": 1.0},
+        {"name": "FastAPI", "importance": 0.8}
+      ]
+    }
+  ]
+}

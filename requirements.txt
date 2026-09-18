@@ -1,0 +1,12 @@
+SQLAlchemy>=1.4
+alembic
+pydantic
+pytest
+fastapi
+uvicorn[standard]
+python-multipart
+boto3
+moto[sqs,s3]
+prometheus_client
+jsonschema
+falkordb

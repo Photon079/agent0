@@ -1,0 +1,1 @@
+"""Job scraper: sources (Greenhouse/Lever/RemoteOK/Arbeitnow) + fixtures + pipeline."""

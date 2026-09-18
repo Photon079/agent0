@@ -1,0 +1,8 @@
+Jane Smith
+jane.smith@example.com
+
+Senior Platform Engineer with deep Python, Docker, Kubernetes and Terraform
+experience building resilient infrastructure.
+
+https://github.com/jane-smith/kubernetes-controller
+https://github.com/jane-smith/terraform-modules
