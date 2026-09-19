@@ -44,26 +44,30 @@ class GraphWriter:
             return skill
 
     def upsert_candidate(self, name: str, email: Optional[str] = None) -> Candidate:
+        from sqlalchemy import func
         with get_session() as session:
+            candidate = None
+            
+            # 1. Try to find by email
             if email:
-                stmt = select(Candidate).where(Candidate.email == email)
-                candidate = session.scalars(stmt).first()
-                if candidate:
-                    candidate.name = name or candidate.name
-                    session.add(candidate)
-                    session.commit()
-                    session.refresh(candidate)
-                    return candidate
+                candidate = session.scalars(select(Candidate).where(Candidate.email == email)).first()
 
-            # No email (e.g. GitHub ingestion): deduplicate by name so
-            # re-ingesting the same GitHub username doesn't create a new row.
-            if name:
-                stmt = select(Candidate).where(Candidate.name == name, Candidate.email == None)  # noqa: E711
-                candidate = session.scalars(stmt).first()
-                if candidate:
-                    session.refresh(candidate)
-                    return candidate
+            # 2. Try to find by name (case-insensitive) if not found by email
+            if not candidate and name:
+                candidate = session.scalars(select(Candidate).where(func.lower(Candidate.name) == name.lower())).first()
 
+            # 3. If found, update missing fields
+            if candidate:
+                if not candidate.email and email:
+                    candidate.email = email
+                if not candidate.name and name:
+                    candidate.name = name
+                session.add(candidate)
+                session.commit()
+                session.refresh(candidate)
+                return candidate
+
+            # 4. Create new
             candidate = Candidate(name=name, email=email)
             session.add(candidate)
             session.commit()

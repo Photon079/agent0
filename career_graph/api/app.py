@@ -213,6 +213,58 @@ async def parse_github(payload: GithubPayload):
     return {"projects": created}
 
 
+class UnifiedIngestPayload(BaseModel):
+    github_username: Optional[str] = None
+    github_token: Optional[str] = None
+    resume_text: Optional[str] = None
+
+
+@app.post("/ingest/unified")
+async def ingest_unified(
+    github_username: Optional[str] = Form(None),
+    github_token: Optional[str] = Form(None),
+    resume_text: Optional[str] = Form(None),
+    resume_file: Optional[UploadFile] = File(None)
+):
+    """Unified endpoint to ingest both GitHub and Resume into a single Candidate profile."""
+    from career_graph.ingestion.candidate_ingestor import CandidateIngestor
+    
+    candidate = None
+    
+    # 1. Parse Resume if provided
+    raw_resume = ""
+    if resume_file:
+        raw_resume = (await resume_file.read()).decode("utf-8")
+    elif resume_text:
+        raw_resume = resume_text
+
+    if raw_resume:
+        parsed_resume = resume_parser.parse(raw_resume)
+        if parsed_resume:
+            candidate = gw.write_parsed_candidate(parsed_resume)
+            
+    # 2. Ingest GitHub if provided
+    if github_username:
+        ingestor = CandidateIngestor()
+        token = github_token or os.getenv("GITHUB_TOKEN")
+        
+        # If candidate already created from resume, we can use their name/id context
+        # But ingestor.ingest_github_username handles upsert_candidate internally
+        # which will now match by name thanks to our GraphWriter update!
+        gh_candidate = ingestor.ingest_github_username(github_username, token=token, max_repos=100)
+        if not candidate:
+            candidate = gh_candidate
+            
+    if not candidate:
+        return {"error": "No valid data provided to ingest"}
+        
+    return {
+        "candidate_id": candidate.id,
+        "name": candidate.name,
+        "email": candidate.email
+    }
+
+
 @app.post("/parse/job")
 async def parse_job(text: Optional[str] = Form(None), file: Optional[UploadFile] = File(None)):
     if file is not None:
