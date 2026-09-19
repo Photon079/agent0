@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../api';
+import CandidateGraph from '../components/CandidateGraph';
 
 function EvidenceSection({ skillName, projectEvidence, expEvidence }) {
   const total = projectEvidence.length + expEvidence.length;
@@ -94,9 +95,13 @@ export default function PublicProfile() {
 
       <div style={{marginBottom: '2rem', textAlign: 'center'}}>
         <h2 style={{fontSize: '1.25rem', fontWeight: 600, color: 'var(--muted)', marginBottom: '1.5rem'}}>Verified Technical Dossier</h2>
-        <p style={{fontSize: '0.95rem', color: 'var(--muted2)', maxWidth: '600px', margin: '0 auto'}}>
+        <p style={{fontSize: '0.95rem', color: 'var(--muted2)', maxWidth: '600px', margin: '0 auto', marginBottom: '2rem'}}>
           This profile is generated directly from source code and public commits. Every skill listed below is backed by verifiable project evidence.
         </p>
+      </div>
+
+      <div style={{marginBottom: '3rem'}}>
+        <CandidateGraph candidate={candidate} evidenceData={evidence} />
       </div>
 
       <div>
