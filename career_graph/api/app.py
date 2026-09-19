@@ -141,6 +141,45 @@ def ingest_github(payload: GithubIngestPayload):
         }
 
 
+class ScrapeJobsPayload(BaseModel):
+    sources: List[str] = ["remoteok", "arbeitnow"]
+    limit: int = 20
+
+
+@app.post("/scrape/jobs")
+def scrape_jobs(payload: ScrapeJobsPayload):
+    """Scrape live job postings and write them into the graph.
+
+    Runs the scraper pipeline (remoteok, arbeitnow, etc.) then immediately
+    processes the results into JobPosting + REQUIRES edges — no CLI needed.
+    """
+    from career_graph.scraper.pipeline import scrape
+    from career_graph.ingestion.job_processor import JobProcessor
+
+    # 1. Scrape live jobs
+    try:
+        jobs_raw = scrape(limit_per_source=payload.limit, sources=payload.sources)
+    except Exception as e:
+        return {"error": f"Scrape failed: {e}", "scraped": 0, "added": 0}
+
+    # 2. Process each job into the graph
+    processor = JobProcessor()
+    added, errors = 0, 0
+    for job in jobs_raw:
+        try:
+            processor.process(job)
+            added += 1
+        except Exception:
+            errors += 1
+
+    return {
+        "scraped": len(jobs_raw),
+        "added": added,
+        "errors": errors,
+        "sources": payload.sources,
+    }
+
+
 # ---------------- Ingestion ----------------
 
 @app.post("/parse/resume")

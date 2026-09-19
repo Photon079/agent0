@@ -6,11 +6,28 @@ export default function Jobs() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState(null);
-  const [matches, setMatches] = useState({});
+  const [scraping, setScraping] = useState(false);
+  const [scrapeResult, setScrapeResult] = useState(null);
 
-  useEffect(() => {
+  const loadJobs = () => {
+    setLoading(true);
     api.get('/jobs').then(data => { setJobs(data); setLoading(false); });
-  }, []);
+  };
+
+  useEffect(() => { loadJobs(); }, []);
+
+  const refreshJobs = async () => {
+    setScraping(true);
+    setScrapeResult(null);
+    try {
+      const result = await api.post('/scrape/jobs', { sources: ['remoteok', 'arbeitnow'], limit: 20 });
+      setScrapeResult(result);
+      if (!result.error) loadJobs(); // reload list after scrape
+    } catch (e) {
+      setScrapeResult({ error: e.message });
+    }
+    setScraping(false);
+  };
 
   const filtered = jobs.filter(j =>
     (j.title || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -22,9 +39,26 @@ export default function Jobs() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Job Postings</h1>
-        <p className="page-sub">{jobs.length} positions in graph</p>
+      <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:'1.75rem', flexWrap:'wrap', gap:'1rem'}}>
+        <div>
+          <h1 className="page-title">Job Postings</h1>
+          <p className="page-sub">{jobs.length} positions in graph</p>
+        </div>
+        <div style={{display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'0.5rem'}}>
+          <button className="btn btn-primary" onClick={refreshJobs} disabled={scraping}>
+            {scraping
+              ? <><span className="spinner" style={{width:14,height:14,borderWidth:2}} />Scraping…</>
+              : '↻ Refresh Jobs'}
+          </button>
+          {scrapeResult && !scrapeResult.error && (
+            <span className="badge badge-green">
+              +{scrapeResult.added} jobs from {scrapeResult.sources?.join(', ')}
+            </span>
+          )}
+          {scrapeResult?.error && (
+            <span className="badge badge-red">⚠ {scrapeResult.error}</span>
+          )}
+        </div>
       </div>
 
       <input
