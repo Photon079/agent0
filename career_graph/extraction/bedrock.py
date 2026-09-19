@@ -144,7 +144,7 @@ def _bedrock_github_repos(repos: List[Dict[str, Any]]) -> Dict[str, Any]:
         "Use exact, canonical skill names."
     )
     user_blocks = []
-    for r in repos[:10]:
+    for r in repos:
         readme = (r.get("readme_text") or "")[:4000]
         deps = r.get("dependency_files") or {}
         if not readme and not deps:
