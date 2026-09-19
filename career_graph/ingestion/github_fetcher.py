@@ -55,7 +55,7 @@ def _readme_text(owner: str, repo: str, token: Optional[str]) -> str:
         return ""
 
 
-def fetch_github_repos(username: str, token: Optional[str] = None, max_repos: int = 10) -> List[Dict[str, Any]]:
+def fetch_github_repos(username: str, token: Optional[str] = None, max_repos: int = 100) -> List[Dict[str, Any]]:
     """Fetch the user's public repos, enriched with languages/README/commits."""
     repos = _gh_get(f"https://api.github.com/users/{username}/repos?per_page=100&sort=updated", token)
     if not isinstance(repos, list):

@@ -2,6 +2,13 @@ VENV=.venv
 PY=${VENV}/bin/python
 PIP=${VENV}/bin/pip
 
+# Auto-load aws_live.env if present (contains GITHUB_TOKEN, AWS keys, CAREER_GRAPH_USE_BEDROCK)
+ENV_FILE ?= aws_live.env
+ifneq ($(wildcard $(ENV_FILE)),)
+  include $(ENV_FILE)
+  export
+endif
+
 .PHONY: venv install migrate revision seed seedjobs test runserver runconsumer runconsumerminimal falkor-run falkor-verify scrape process ingest clean
 
 venv:
@@ -56,10 +63,14 @@ process: install
 process-sqs: install
 	. ${VENV}/bin/activate && python scripts/process_jobs.py --queue
 
+MAX_REPOS ?= 100
+
 ingest: install
 	ARGS=""; \
 	[ -n "$(RESUME)" ] && ARGS="$$ARGS --resume $(RESUME)"; \
 	[ -n "$(GITHUB_USERNAME)" ] && ARGS="$$ARGS --github $(GITHUB_USERNAME)"; \
+	[ -n "$(GITHUB_TOKEN)" ] && ARGS="$$ARGS --github-token $(GITHUB_TOKEN)"; \
+	ARGS="$$ARGS --max-repos $(MAX_REPOS)"; \
 	. ${VENV}/bin/activate && python scripts/ingest_candidate.py $$ARGS
 
 clean:

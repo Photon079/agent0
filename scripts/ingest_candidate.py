@@ -24,7 +24,7 @@ def main():
     parser.add_argument("--resume", help="Path to resume (.txt or .pdf)")
     parser.add_argument("--github", help="GitHub username to fetch repos from")
     parser.add_argument("--github-token", default=os.environ.get("GITHUB_TOKEN"), help="GitHub API token (or $GITHUB_TOKEN)")
-    parser.add_argument("--max-repos", type=int, default=10)
+    parser.add_argument("--max-repos", type=int, default=100, help="Max repos to fetch (default: 100)")
     args = parser.parse_args()
 
     if not args.resume and not args.github:
