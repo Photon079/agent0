@@ -139,14 +139,23 @@ def _bedrock_github_repos(repos: List[Dict[str, Any]]) -> Dict[str, Any]:
         return base
 
     system = (
-        "For each GitHub repository, infer the tech skills shown in its "
-        'README. Return ONLY valid JSON: {"repos":{"repo_name":["Python","AWS"]}}. '
+        "For each GitHub repository, infer the tech skills and dependencies shown in its "
+        'README and dependency files. Return ONLY valid JSON: {"repos":{"repo_name":["Python","AWS","React"]}}. '
         "Use exact, canonical skill names."
     )
-    user = "\n\n".join(
-        f"<repo name={r.get('name')}>\n{(r.get('readme_text') or '')[:4000]}\n</repo>"
-        for r in with_readme[:10]
-    )
+    user_blocks = []
+    for r in repos[:10]:
+        readme = (r.get("readme_text") or "")[:4000]
+        deps = r.get("dependency_files") or {}
+        if not readme and not deps:
+            continue
+        deps_text = "\n".join(f"--- {name} ---\n{content}" for name, content in deps.items())
+        user_blocks.append(f"<repo name={r.get('name')}>\n{readme}\n{deps_text}\n</repo>")
+    
+    if not user_blocks:
+        return base
+
+    user = "\n\n".join(user_blocks)
     raw = _converse(system, user, GITHUB_MODEL)
     data = _require_json(_parse_json_text(raw))
     by_name = data.get("repos", {})
@@ -168,3 +177,70 @@ def extract_github_repos(repos: List[Dict[str, Any]]) -> Dict[str, Any]:
     from ..parsers.github_parser import GithubParser
 
     return GithubParser().parse(repos)
+
+
+# ---------------- Gap Micro-Projects ----------------
+
+def suggest_micro_project(job_skills: List[str], missing_skills: List[str], candidate_skills: List[str]) -> Dict[str, str]:
+    """Suggest a small project to bridge the gap between candidate skills and job requirements."""
+    if not USE_BEDROCK:
+        return {
+            "title": "Learn Missing Skills",
+            "description": f"Build a small project using {', '.join(missing_skills[:3])} to bridge the gap."
+        }
+    
+    system = (
+        "You are a senior engineering manager. A candidate is applying for a job, but they are missing certain skills. "
+        "Suggest a highly specific, actionable 'micro-project' they can build over a weekend to learn the missing skills "
+        "and prove they can do the job. The project should ideally combine their existing skills with the missing ones. "
+        'Return ONLY valid JSON: {"title": "Project Name", "description": "1-2 paragraph description of what to build and how it uses the missing skills"}'
+    )
+    user = (
+        f"Job requires: {', '.join(job_skills)}\n"
+        f"Candidate has: {', '.join(candidate_skills)}\n"
+        f"Candidate is MISSING: {', '.join(missing_skills)}\n"
+    )
+    try:
+        raw = _converse(system, user, JD_MODEL)
+        return _require_json(_parse_json_text(raw))
+    except Exception:
+        return {
+            "title": "Learn Missing Skills",
+            "description": f"Build a small project using {', '.join(missing_skills[:3])} to bridge the gap."
+        }
+
+
+# ---------------- Proof-Backed Bullets ----------------
+
+def generate_proof_bullets(job_title: str, evidence: List[Dict]) -> List[Dict]:
+    """Generate resume bullets for a job tied directly to graph evidence."""
+    if not USE_BEDROCK:
+        return [
+            {
+                "bullet": f"Leveraged {e.get('skill')} effectively.",
+                "evidence_ids": [p.get("name") for p in e.get("project_evidence", [])][:1],
+                "skill": e.get("skill")
+            }
+            for e in evidence[:3]
+        ]
+
+    system = (
+        "You are an expert resume writer. Given a job title and a candidate's verifiable evidence (projects, experience) "
+        "for their skills, generate 3-5 highly impactful, quantifiable resume bullets. "
+        "Crucially, for EACH bullet, you MUST provide the exact names of the projects or experiences you used as proof from the evidence provided. "
+        'Return ONLY valid JSON: {"bullets": [{"bullet": "Designed...", "evidence_ids": ["ProjectA", "CompanyB"], "skill": "Python"}]}'
+    )
+    user_blocks = [f"Job Title: {job_title}\n\nEvidence:"]
+    for e in evidence:
+        user_blocks.append(f"Skill: {e['skill']}")
+        for p in e.get("project_evidence", []):
+            user_blocks.append(f"  Project: {p['name']} ({p.get('commits', 0)} commits) - {p.get('description', '')}")
+        for exp in e.get("experience_evidence", []):
+            user_blocks.append(f"  Experience: {exp['role']} @ {exp['company']} ({exp.get('duration', '')})")
+
+    try:
+        raw = _converse(system, "\n".join(user_blocks), RESUME_MODEL)
+        data = _require_json(_parse_json_text(raw))
+        return data.get("bullets", [])
+    except Exception:
+        return []

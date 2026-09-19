@@ -67,6 +67,9 @@ export default function CandidateDetail() {
   const [selectedJob, setSelectedJob] = useState('');
   const [gap, setGap] = useState(null);
   const [gapLoading, setGapLoading] = useState(false);
+  const [bullets, setBullets] = useState(null);
+  const [bulletsLoading, setBulletsLoading] = useState(false);
+  const [activeBullet, setActiveBullet] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -89,9 +92,20 @@ export default function CandidateDetail() {
     if (!selectedJob) return;
     setGapLoading(true);
     setGap(null);
-    api.get(`/gap/${id}/${selectedJob}`).then(data => {
+    api.get(`/gap/${id}/${selectedJob}/project`).then(data => {
       setGap(data);
       setGapLoading(false);
+    });
+  };
+
+  const generateBullets = () => {
+    if (!selectedJob) return;
+    setBulletsLoading(true);
+    setBullets(null);
+    setActiveBullet(null);
+    api.post('/generate/bullets', { candidate_id: id, job_id: selectedJob }).then(data => {
+      setBullets(data.bullets);
+      setBulletsLoading(false);
     });
   };
 
@@ -174,32 +188,84 @@ export default function CandidateDetail() {
           <hr className="divider" />
 
           {/* Gap Analysis */}
-          <div className="section-title">📉 Skill Gap Analysis</div>
+          <div className="section-title">📈 Bridge the Gap</div>
+          <p style={{fontSize:'0.8rem', color:'var(--muted2)', marginBottom:'1rem'}}>Select a job to generate a personalized micro-project to fill your skill gaps.</p>
           <div style={{display:'flex', gap:'0.75rem', marginBottom:'1rem', flexWrap:'wrap'}}>
             <select className="select" style={{flex:1}} value={selectedJob} onChange={e => setSelectedJob(e.target.value)}>
               <option value="">Select a job posting…</option>
               {jobs.map(j => <option key={j.id} value={j.id}>{j.title} @ {j.company}</option>)}
             </select>
             <button className="btn btn-primary" onClick={analyzeGap} disabled={!selectedJob || gapLoading}>
-              {gapLoading ? 'Analyzing…' : 'Analyze'}
+              {gapLoading ? 'Generating…' : 'Generate Project'}
             </button>
           </div>
           {gap && (
             <div>
-              {gap.missing_skills.length === 0 ? (
-                <div className="alert alert-success">✅ No skill gaps — this candidate meets all requirements!</div>
+              {gap.title === "No Gap Detected" ? (
+                <div className="alert alert-success">✅ {gap.description}</div>
               ) : (
-                <div>
-                  <div style={{fontSize:'0.8rem', color:'var(--muted2)', marginBottom:'0.6rem'}}>
-                    Missing {gap.missing_skills.length} skills:
+                <div className="card" style={{marginTop: '1rem', background: 'var(--surface2)', border: '1px solid var(--border)'}}>
+                  <div style={{fontWeight: '700', fontSize: '1.1rem', marginBottom: '0.5rem', color: 'var(--accent)'}}>
+                    💡 {gap.title}
                   </div>
-                  <div className="skill-tags">
-                    {gap.missing_skills.map(s => <span key={s} className="gap-tag">{s}</span>)}
+                  <div style={{fontSize: '0.875rem', color: 'var(--muted)', lineHeight: '1.6'}}>
+                    {gap.description}
                   </div>
                 </div>
               )}
             </div>
           )}
+
+          <hr className="divider" />
+
+          {/* Resume Bullets */}
+          <div className="section-title">📄 Proof-Backed Resume</div>
+          <p style={{fontSize:'0.8rem', color:'var(--muted2)', marginBottom:'1rem'}}>Generate resume bullets for this job, tied directly to verifiable graph evidence.</p>
+          <div style={{display:'flex', gap:'0.75rem', marginBottom:'1rem'}}>
+            <button className="btn btn-primary" onClick={generateBullets} disabled={!selectedJob || bulletsLoading} style={{flex:1}}>
+              {bulletsLoading ? 'Writing...' : 'Draft Tailored Resume Bullets'}
+            </button>
+          </div>
+          {bullets && (
+            <div style={{display:'flex', flexDirection:'column', gap:'0.75rem'}}>
+              {bullets.length === 0 ? (
+                <div className="empty"><div className="empty-text">Not enough matching skills to generate bullets.</div></div>
+              ) : (
+                bullets.map((b, i) => (
+                  <div key={i} className="card" style={{padding:'1rem'}}>
+                    <div style={{fontSize:'0.9rem', lineHeight:'1.5', marginBottom:'0.75rem'}}>
+                      • {b.bullet}
+                    </div>
+                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                      <span className="badge badge-muted">{b.skill}</span>
+                      <button 
+                        className="btn btn-sm btn-outline" 
+                        onClick={() => setActiveBullet(activeBullet === i ? null : i)}
+                      >
+                        {activeBullet === i ? 'Hide Proof' : 'Why this claim?'}
+                      </button>
+                    </div>
+                    {activeBullet === i && (
+                      <div style={{marginTop:'1rem', padding:'0.75rem', background:'var(--surface-bg)', borderRadius:'4px', fontSize:'0.8rem', borderLeft:'3px solid var(--accent)'}}>
+                        <div style={{fontWeight:700, marginBottom:'0.5rem'}}>Graph Evidence Trace:</div>
+                        <div style={{fontFamily:'JetBrains Mono', color:'var(--muted)'}}>
+                          Node: Candidate 
+                          <br/>↓ HAS_SKILL 
+                          <br/>Node: {b.skill}
+                          <br/>↓ PROVEN_BY 
+                          <br/>Sources: {b.evidence_ids?.join(', ') || 'N/A'}
+                        </div>
+                        <div style={{marginTop:'0.75rem'}}>
+                          <a href="#" className="evidence-link">🔗 Copy Public Verification URL</a>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
         </div>
       </div>
     </div>

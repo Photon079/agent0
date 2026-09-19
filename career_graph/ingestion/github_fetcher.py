@@ -55,8 +55,26 @@ def _readme_text(owner: str, repo: str, token: Optional[str]) -> str:
         return ""
 
 
+def _dependency_files(owner: str, repo: str, token: Optional[str], default_branch: str) -> Dict[str, str]:
+    files_to_check = {"package.json", "requirements.txt", "Pipfile", "Cargo.toml", "go.mod", "docker-compose.yml", "Dockerfile", "build.gradle"}
+    found_files = {}
+    try:
+        tree = _gh_get(f"https://api.github.com/repos/{owner}/{repo}/git/trees/{default_branch}", token)
+        for item in tree.get("tree", []):
+            if item.get("path") in files_to_check and item.get("type") == "blob":
+                content_data = _gh_get(item.get("url"), token)
+                content = content_data.get("content") or ""
+                enc = content_data.get("encoding")
+                if enc == "base64" or not enc:
+                    content = base64.b64decode(content).decode("utf-8", errors="replace")
+                found_files[item["path"]] = content[:4000] # Cap length to avoid massive tokens
+    except Exception:
+        pass
+    return found_files
+
+
 def fetch_github_repos(username: str, token: Optional[str] = None, max_repos: int = 100) -> List[Dict[str, Any]]:
-    """Fetch the user's public repos, enriched with languages/README/commits."""
+    """Fetch the user's public repos, enriched with languages/README/commits/deps."""
     repos = _gh_get(f"https://api.github.com/users/{username}/repos?per_page=100&sort=updated", token)
     if not isinstance(repos, list):
         raise RuntimeError(f"Unexpected GitHub response for '{username}': {repos}")
@@ -65,6 +83,7 @@ def fetch_github_repos(username: str, token: Optional[str] = None, max_repos: in
     for r in repos[:max_repos]:
         name = r.get("name")
         owner = r.get("owner", {}).get("login") or username
+        default_branch = r.get("default_branch") or "main"
         try:
             languages = _gh_get(f"https://api.github.com/repos/{owner}/{name}/languages", token)
         except Exception:
@@ -78,6 +97,7 @@ def fetch_github_repos(username: str, token: Optional[str] = None, max_repos: in
                 "language": primary,
                 "commits_count": _commit_count(owner, name, token),
                 "readme_text": _readme_text(owner, name, token),
+                "dependency_files": _dependency_files(owner, name, token, default_branch),
             }
         )
     return results

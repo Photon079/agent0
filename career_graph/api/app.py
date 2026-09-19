@@ -279,6 +279,73 @@ def gap(candidate_id: str, job_id: str):
     return {"missing_skills": missing}
 
 
+@app.get("/gap/{candidate_id}/{job_id}/project")
+def gap_project(candidate_id: str, job_id: str):
+    from career_graph.extraction.bedrock import suggest_micro_project
+    from career_graph.db import get_session
+    from career_graph.models import Candidate, JobPosting
+
+    try:
+        cand_id_int = int(str(candidate_id).replace("cand:", ""))
+        job_id_int = int(str(job_id).replace("job:", ""))
+    except ValueError:
+        return {"error": "Invalid ID format"}
+
+    with get_session() as session:
+        cand = session.get(Candidate, cand_id_int)
+        job = session.get(JobPosting, job_id_int)
+        if not cand or not job:
+            return {"error": "Candidate or Job not found"}
+        
+        cand_skills = [s.canonical_name for s in cand.skills]
+        job_skills = [s.canonical_name for s in job.skills]
+        
+        missing = [s for s in job_skills if s not in cand_skills]
+        if not missing:
+            return {"title": "No Gap Detected", "description": "You already have all the required skills for this job!"}
+            
+        suggestion = suggest_micro_project(job_skills, missing, cand_skills)
+        return suggestion
+
+
+from pydantic import BaseModel
+class BulletGenerateRequest(BaseModel):
+    candidate_id: str
+    job_id: str
+
+@app.post("/generate/bullets")
+def generate_bullets(req: BulletGenerateRequest):
+    from career_graph.extraction.bedrock import generate_proof_bullets
+    from career_graph.db import get_session
+    from career_graph.models import Candidate, JobPosting
+
+    try:
+        cand_id_int = int(str(req.candidate_id).replace("cand:", ""))
+        job_id_int = int(str(req.job_id).replace("job:", ""))
+    except ValueError:
+        return {"error": "Invalid ID format"}
+
+    with get_session() as session:
+        cand = session.get(Candidate, cand_id_int)
+        job = session.get(JobPosting, job_id_int)
+        if not cand or not job:
+            return {"error": "Candidate or Job not found"}
+        
+        cand_skills = [s.canonical_name for s in cand.skills]
+        job_skills = [s.canonical_name for s in job.skills]
+        overlap = [s for s in job_skills if s in cand_skills]
+    
+    if not overlap:
+        return {"bullets": []}
+    
+    # Get evidence for overlapping skills
+    ev_res = evidence_candidate(req.candidate_id, skills=",".join(overlap))
+    evidence_list = ev_res.get("evidence", [])
+    
+    bullets = generate_proof_bullets(job.title, evidence_list)
+    return {"bullets": bullets}
+
+
 @app.get("/evidence/skill/{skill_id}")
 def evidence_skill(skill_id: str):
     backend = get_active_backend()
