@@ -105,6 +105,7 @@ class JobPosting(Base):
     company = Column(String(255), nullable=True)
     description = Column(Text, nullable=True)
     source = Column(String(128), nullable=True)
+    url = Column(String(512), nullable=True)
     posted_at = Column(DateTime, default=datetime.utcnow)
 
     skills = relationship("Skill", secondary=job_requirement, back_populates="job_postings")

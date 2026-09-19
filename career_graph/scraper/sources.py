@@ -29,7 +29,7 @@ TAG_RE = re.compile(r"<[^>]+>")
 WHITESPACE_RE = re.compile(r"[ \t]+")
 BLANK_LINES_RE = re.compile(r"\n{3,}")
 
-SOURCE_NAMES = ["greenhouse", "lever", "remoteok", "arbeitnow", "fixture"]
+SOURCE_NAMES = ["greenhouse", "lever", "remoteok", "arbeitnow", "adzuna", "fixture"]
 
 
 def os_getenv_required(var: str, source: str) -> str:
@@ -157,6 +157,28 @@ def fetch_arbeitnow(limit: int = 25) -> List[Dict]:
     return jobs
 
 
+# ---------------- Adzuna ----------------
+
+def fetch_adzuna(app_id: str, app_key: str, limit: int = 25, country: str = "us") -> List[Dict]:
+    url = f"https://api.adzuna.com/v1/api/jobs/{country}/search/1?app_id={app_id}&app_key={app_key}&results_per_page={limit}"
+    data = _http_get_json(url)
+    jobs = []
+    for j in data.get("results", []):
+        jobs.append(
+            _norm(
+                j.get("id"),
+                "adzuna",
+                j.get("title"),
+                (j.get("company") or {}).get("display_name"),
+                j.get("redirect_url"),
+                j.get("description", ""),
+                ", ".join((j.get("location") or {}).get("area", [])),
+            )
+        )
+    return jobs
+
+
+
 # ---------------- Local fixture fallback ----------------
 
 def fetch_fixtures(path: Optional[str] = None, limit: int = 25) -> List[Dict]:
@@ -199,6 +221,10 @@ def fetch_source(source: str, limit: int = 25, **kwargs) -> List[Dict]:
         return fetch_remoteok(limit)
     if source == "arbeitnow":
         return fetch_arbeitnow(limit)
+    if source == "adzuna":
+        app_id = kwargs.get("app_id") or os_getenv_required("ADZUNA_APP_ID", source)
+        app_key = kwargs.get("app_key") or os_getenv_required("ADZUNA_APP_KEY", source)
+        return fetch_adzuna(app_id, app_key, limit)
     if source == "fixture":
         return fetch_fixtures(kwargs.get("fixtures_path"), limit)
     raise ValueError(f"Unknown source: {source}")
@@ -211,7 +237,7 @@ def fetch_all(limit_per_source: int = 10, sources: Optional[List[str]] = None, *
     A failed source falls back to empty list (never crash the whole batch).
     """
     if not sources:
-        sources = ["greenhouse", "lever", "remoteok", "arbeitnow"]
+        sources = ["greenhouse", "lever", "remoteok", "arbeitnow", "adzuna"]
     seen, jobs = set(), []
     for src in sources:
         try:

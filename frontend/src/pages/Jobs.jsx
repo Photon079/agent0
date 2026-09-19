@@ -20,7 +20,7 @@ export default function Jobs() {
     setScraping(true);
     setScrapeResult(null);
     try {
-      const result = await api.post('/scrape/jobs', { sources: ['remoteok', 'arbeitnow'], limit: 20 });
+      const result = await api.post('/scrape/jobs', { sources: ['remoteok', 'arbeitnow', 'adzuna'], limit: 20 });
       setScrapeResult(result);
       if (!result.error) loadJobs(); // reload list after scrape
     } catch (e) {
@@ -85,7 +85,14 @@ export default function Jobs() {
             >
               <div>
                 <div style={{fontWeight:700, fontSize:'1rem'}}>{j.title}</div>
-                <div style={{fontSize:'0.82rem', color:'var(--muted2)', marginTop:'0.2rem'}}>{j.company}</div>
+                <div style={{fontSize:'0.82rem', color:'var(--muted2)', marginTop:'0.2rem'}}>
+                  {j.company}
+                  {j.url && (
+                    <span style={{marginLeft: '0.5rem'}}>
+                      • <a href={j.url} target="_blank" rel="noreferrer" style={{color: 'var(--accent)', textDecoration: 'none'}} onClick={e => e.stopPropagation()}>View Posting ↗</a>
+                    </span>
+                  )}
+                </div>
               </div>
               <div style={{display:'flex', gap:'0.5rem', alignItems:'center', flexShrink:0, marginLeft:'1rem'}}>
                 <span className="badge badge-accent">{j.skills.length} skills required</span>

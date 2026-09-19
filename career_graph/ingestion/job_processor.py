@@ -49,7 +49,7 @@ class JobProcessor:
         if requirements is None:
             requirements = extract_job_skills(description, title).get("skills", [])
 
-        posting = self.gw.upsert_jobposting(title, company=company, description=description, source=job.get("source") or "scraper")
+        posting = self.gw.upsert_jobposting(title, company=company, description=description, source=job.get("source") or "scraper", url=job.get("url"))
 
         seen, requirements_out = set(), []
         for r in requirements:
