@@ -94,18 +94,19 @@ class GraphWriter:
             session.refresh(proj)
             return proj
 
-    def upsert_jobposting(self, title: str, company: Optional[str] = None, description: Optional[str] = None, source: Optional[str] = None) -> JobPosting:
+    def upsert_jobposting(self, title: str, company: Optional[str] = None, description: Optional[str] = None, source: Optional[str] = None, url: Optional[str] = None) -> JobPosting:
         with get_session() as session:
             stmt = select(JobPosting).where(JobPosting.title == title).where(JobPosting.company == company)
             job = session.scalars(stmt).first()
             if job:
                 job.description = description or job.description
+                job.url = url or job.url
                 session.add(job)
                 session.commit()
                 session.refresh(job)
                 return job
 
-            job = JobPosting(title=title, company=company, description=description, source=source)
+            job = JobPosting(title=title, company=company, description=description, source=source, url=url)
             session.add(job)
             session.commit()
             session.refresh(job)

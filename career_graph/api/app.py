@@ -103,6 +103,7 @@ def list_jobs():
                 "id": j.id,
                 "title": j.title,
                 "company": j.company,
+                "url": j.url,
                 "description": j.description,
                 "skills": [s.canonical_name for s in j.skills],  # eagerly loaded
             }
