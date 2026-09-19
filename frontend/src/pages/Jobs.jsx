@@ -20,7 +20,7 @@ export default function Jobs() {
     setScraping(true);
     setScrapeResult(null);
     try {
-      const result = await api.post('/scrape/jobs', { sources: ['remoteok', 'arbeitnow'], limit: 20 });
+      const result = await api.post('/scrape/jobs', { sources: ['remoteok', 'arbeitnow', 'adzuna'], limit: 20 });
       setScrapeResult(result);
       if (!result.error) loadJobs(); // reload list after scrape
     } catch (e) {

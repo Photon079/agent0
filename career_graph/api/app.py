@@ -142,7 +142,7 @@ def ingest_github(payload: GithubIngestPayload):
 
 
 class ScrapeJobsPayload(BaseModel):
-    sources: List[str] = ["remoteok", "arbeitnow"]
+    sources: List[str] = ["remoteok", "arbeitnow", "adzuna"]
     limit: int = 20
 
 
