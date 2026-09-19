@@ -116,7 +116,12 @@ export default function CandidateDetail() {
 
   return (
     <div>
-      <button className="back-btn" onClick={() => navigate('/candidates')}>← Back to Candidates</button>
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+        <button className="back-btn" onClick={() => navigate('/candidates')}>← Back to Candidates</button>
+        <button className="btn btn-sm btn-outline" onClick={() => window.open(`/profile/${id}`, '_blank')}>
+          🔗 View Public Profile
+        </button>
+      </div>
 
       {/* Header */}
       <div className="card" style={{marginBottom:'1.5rem', background:'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(34,211,238,0.04))'}}>
