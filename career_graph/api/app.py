@@ -62,14 +62,17 @@ def get_backend_status():
 def list_candidates():
     """List all candidates with skill count and project count."""
     from sqlalchemy import select, func
+    from sqlalchemy.orm import selectinload
     from career_graph.db import get_session
-    from career_graph.models import Candidate, candidate_skill, Project
+    from career_graph.models import Candidate, Project
 
     with get_session() as session:
-        candidates = session.scalars(select(Candidate)).all()
+        candidates = session.scalars(
+            select(Candidate).options(selectinload(Candidate.skills))
+        ).all()
         result = []
         for c in candidates:
-            skill_names = [s.canonical_name for s in c.skills]
+            skill_names = [s.canonical_name for s in c.skills]  # eagerly loaded
             proj_count = session.scalar(
                 select(func.count()).select_from(Project).where(Project.candidate_id == c.id)
             ) or 0
@@ -87,18 +90,21 @@ def list_candidates():
 def list_jobs():
     """List all job postings with required skills."""
     from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
     from career_graph.db import get_session
     from career_graph.models import JobPosting
 
     with get_session() as session:
-        jobs = session.scalars(select(JobPosting)).all()
+        jobs = session.scalars(
+            select(JobPosting).options(selectinload(JobPosting.skills))
+        ).all()
         return [
             {
                 "id": j.id,
                 "title": j.title,
                 "company": j.company,
                 "description": j.description,
-                "skills": [s.canonical_name for s in j.skills],
+                "skills": [s.canonical_name for s in j.skills],  # eagerly loaded
             }
             for j in jobs
         ]
@@ -107,17 +113,32 @@ def list_jobs():
 @app.post("/ingest/github")
 def ingest_github(payload: GithubIngestPayload):
     """Trigger full GitHub username ingestion (fetches repos, extracts skills, writes graph)."""
+    from sqlalchemy import select, func
+    from sqlalchemy.orm import selectinload
+    from career_graph.db import get_session
+    from career_graph.models import Candidate, Project
     from career_graph.ingestion.candidate_ingestor import CandidateIngestor
 
     ingestor = CandidateIngestor()
     token = payload.token or os.getenv("GITHUB_TOKEN")
     cand = ingestor.ingest_github_username(payload.username, token=token, max_repos=payload.max_repos)
-    return {
-        "candidate_id": cand.id,
-        "name": cand.name,
-        "skills": [s.canonical_name for s in cand.skills],
-        "project_count": len(cand.projects),
-    }
+    cand_id = cand.id
+    cand_name = cand.name
+
+    # Re-query inside a fresh session to safely access relationships
+    with get_session() as session:
+        c = session.scalar(
+            select(Candidate).where(Candidate.id == cand_id).options(selectinload(Candidate.skills))
+        )
+        proj_count = session.scalar(
+            select(func.count()).select_from(Project).where(Project.candidate_id == cand_id)
+        ) or 0
+        return {
+            "candidate_id": cand_id,
+            "name": cand_name,
+            "skills": [s.canonical_name for s in c.skills] if c else [],
+            "project_count": proj_count,
+        }
 
 
 # ---------------- Ingestion ----------------
