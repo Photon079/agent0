@@ -36,6 +36,12 @@ class GithubPayload(BaseModel):
     email: Optional[str] = None
 
 
+class GithubIngestPayload(BaseModel):
+    username: str
+    token: Optional[str] = None
+    max_repos: int = 100
+
+
 # ---------------- Health & Backend ----------------
 
 @app.get("/backend")
@@ -47,6 +53,70 @@ def get_backend_status():
         "active_backend": get_active_backend(),
         "configured_backend": os.getenv("CAREER_GRAPH_BACKEND") or "default (auto-detect)",
         "falkordb_available": is_falkor_available(),
+    }
+
+
+# ---------------- List endpoints (used by frontend) ----------------
+
+@app.get("/candidates")
+def list_candidates():
+    """List all candidates with skill count and project count."""
+    from sqlalchemy import select, func
+    from career_graph.db import get_session
+    from career_graph.models import Candidate, candidate_skill, Project
+
+    with get_session() as session:
+        candidates = session.scalars(select(Candidate)).all()
+        result = []
+        for c in candidates:
+            skill_names = [s.canonical_name for s in c.skills]
+            proj_count = session.scalar(
+                select(func.count()).select_from(Project).where(Project.candidate_id == c.id)
+            ) or 0
+            result.append({
+                "id": c.id,
+                "name": c.name,
+                "email": c.email,
+                "skills": skill_names,
+                "project_count": proj_count,
+            })
+        return result
+
+
+@app.get("/jobs")
+def list_jobs():
+    """List all job postings with required skills."""
+    from sqlalchemy import select
+    from career_graph.db import get_session
+    from career_graph.models import JobPosting
+
+    with get_session() as session:
+        jobs = session.scalars(select(JobPosting)).all()
+        return [
+            {
+                "id": j.id,
+                "title": j.title,
+                "company": j.company,
+                "description": j.description,
+                "skills": [s.canonical_name for s in j.skills],
+            }
+            for j in jobs
+        ]
+
+
+@app.post("/ingest/github")
+def ingest_github(payload: GithubIngestPayload):
+    """Trigger full GitHub username ingestion (fetches repos, extracts skills, writes graph)."""
+    from career_graph.ingestion.candidate_ingestor import CandidateIngestor
+
+    ingestor = CandidateIngestor()
+    token = payload.token or os.getenv("GITHUB_TOKEN")
+    cand = ingestor.ingest_github_username(payload.username, token=token, max_repos=payload.max_repos)
+    return {
+        "candidate_id": cand.id,
+        "name": cand.name,
+        "skills": [s.canonical_name for s in cand.skills],
+        "project_count": len(cand.projects),
     }
 
 
