@@ -55,7 +55,15 @@ class GraphWriter:
                     session.refresh(candidate)
                     return candidate
 
-            # fallback lookup by name (non-unique) - create new
+            # No email (e.g. GitHub ingestion): deduplicate by name so
+            # re-ingesting the same GitHub username doesn't create a new row.
+            if name:
+                stmt = select(Candidate).where(Candidate.name == name, Candidate.email == None)  # noqa: E711
+                candidate = session.scalars(stmt).first()
+                if candidate:
+                    session.refresh(candidate)
+                    return candidate
+
             candidate = Candidate(name=name, email=email)
             session.add(candidate)
             session.commit()
@@ -71,6 +79,10 @@ class GraphWriter:
                     proj.name = name or proj.name
                     proj.description = description or proj.description
                     proj.commit_count = commit_count or proj.commit_count
+                    proj.source = source or proj.source
+                    # reassign to the new candidate if provided (re-ingest scenario)
+                    if candidate_id is not None:
+                        proj.candidate_id = candidate_id
                     session.add(proj)
                     session.commit()
                     session.refresh(proj)

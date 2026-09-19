@@ -207,35 +207,59 @@ def evidence_candidate(candidate_id: str, skills: Optional[str] = None):
         except Exception as e:
             log.warning("FalkorDB candidate evidence query failed (%s); falling back to SQLite", e)
 
-    # SQLite fallback
+    # SQLite fallback — use explicit SQL joins so lazy-loading session scope issues
+    # don't produce empty project_evidence arrays.
     try:
         cand_id_int = int(str(candidate_id).replace("cand:", ""))
     except ValueError:
         cand_id_int = 1
+    from sqlalchemy import select as sa_select
     from career_graph.db import get_session
-    from career_graph.models import Candidate
+    from career_graph.models import Candidate, Project, Skill, Experience, project_skill, candidate_skill
 
     with get_session() as session:
         cand = session.get(Candidate, cand_id_int)
         if not cand:
             return {"candidate_id": candidate_id, "evidence": [], "backend": "sqlite"}
+
+        # candidate's own skills
         cand_skills = [s.canonical_name for s in cand.skills]
         target_skills = skill_list or cand_skills
+
+        # explicit project query: projects owned by this candidate + their skills
+        projects_q = (
+            sa_select(Project, Skill.canonical_name)
+            .join(project_skill, Project.id == project_skill.c.project_id)
+            .join(Skill, Skill.id == project_skill.c.skill_id)
+            .where(Project.candidate_id == cand_id_int)
+        )
+        proj_rows = session.execute(projects_q).all()
+        # build index: skill_name → list of project evidence dicts
+        proj_by_skill: dict = {}
+        for proj, skill_name in proj_rows:
+            sk_lower = skill_name.lower()
+            proj_by_skill.setdefault(sk_lower, [])
+            # deduplicate by project id
+            if not any(e["_pid"] == proj.id for e in proj_by_skill[sk_lower]):
+                proj_by_skill[sk_lower].append({
+                    "_pid": proj.id,
+                    "type": "project",
+                    "name": proj.name,
+                    "description": proj.description,
+                    "commits": proj.commit_count,
+                    "url": proj.url,
+                })
+
+        # explicit experience query
+        exps = session.scalars(
+            sa_select(Experience).where(Experience.candidate_id == cand_id_int)
+        ).all()
+
         evidence_out = []
         for sname in target_skills:
-            p_ev = []
-            for p in cand.projects:
-                for sk in p.skills:
-                    if sk.canonical_name.lower() == sname.lower():
-                        p_ev.append({
-                            "type": "project",
-                            "name": p.name,
-                            "description": p.description,
-                            "commits": p.commit_count,
-                            "url": p.url,
-                        })
+            p_ev = [{k: v for k, v in e.items() if k != "_pid"} for e in proj_by_skill.get(sname.lower(), [])]
             e_ev = []
-            for exp in cand.experiences:
+            for exp in exps:
                 if exp.description and sname.lower() in exp.description.lower():
                     duration = f"{exp.start_date or ''} - {exp.end_date or ''}"
                     e_ev.append({
