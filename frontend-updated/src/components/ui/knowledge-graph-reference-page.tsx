@@ -94,7 +94,165 @@ function Graph({ evidence, candidateName, reducedMotion }: { evidence: Evidence[
     return () => { cancelAnimationFrame(animationFrame); observer.disconnect(); container.removeEventListener("pointermove", move); container.removeEventListener("pointerdown", down); container.removeEventListener("pointerup", up); graphData.nodes.forEach(() => undefined); renderer.dispose(); glowTexture.dispose(); starGeometry.dispose(); edgeGeometry.dispose(); container.removeChild(renderer.domElement); };
   }, [graphData, reducedMotion, zoom]);
 
-  return <div ref={containerRef} style={{ position: "absolute", inset: 0, cursor: "grab" }}><div style={{ position: "absolute", zIndex: 3, ...cardStyle, width: 242, padding: 14, pointerEvents: "none", opacity: hovered ? 1 : 0, transform: hovered ? "translateY(0)" : "translateY(8px)", transition: "opacity 180ms, transform 180ms", left: tooltipPosition.x, top: tooltipPosition.y - 190, marginLeft: -121 }}><div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(0,255,156,.15)", paddingBottom: 8, marginBottom: 9, font: `10px ${mono}` }}><strong style={{ color: colors.text }}>{hovered?.name}</strong><span style={{ color: colors.neon, fontSize: 8 }}>{hovered?.group.toUpperCase()}</span></div><p style={{ margin: "0 0 12px", color: colors.muted, font: `11px ${mono}`, lineHeight: 1.5 }}>{hovered?.description}</p><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, color: colors.muted, font: `9px ${mono}` }}><span style={{ ...cardStyle, padding: 7 }}>REPOSITORIES<br /><b style={{ color: colors.text }}>{hovered?.repositories}</b></span><span style={{ ...cardStyle, padding: 7 }}>TELEMETRY<br /><b style={{ color: colors.text }}>{hovered?.commits} commits</b></span></div><div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid rgba(0,255,156,.1)", color: colors.neon, font: `9px ${mono}` }}>● Evidence grounded　 Inspect ↓</div></div><div style={{ position: "absolute", zIndex: 3, left: 24, bottom: 18, ...cardStyle, padding: "7px 10px", color: colors.muted, font: `9px ${mono}` }}>HIERARCHY: <span style={{ color: "#fff" }}>● Root</span>　<span style={{ color: colors.neon }}>● Domain</span>　<span style={{ color: colors.vibrant }}>● Skill</span>　<span style={{ color: colors.dim }}>● Project Evidence</span></div><div style={{ position: "absolute", zIndex: 3, right: 24, bottom: 18, display: "flex", gap: 3, ...cardStyle, padding: 4 }}><button onClick={() => setZoom((value) => Math.min(1.45, value + .12))} style={{ ...buttonStyle }}>＋</button><button onClick={() => setZoom((value) => Math.max(.75, value - .12))} style={{ ...buttonStyle }}>−</button><span style={{ width: 1, margin: "3px 4px", background: "rgba(0,255,156,.2)" }} /><button onClick={() => setZoom(1)} style={{ ...buttonStyle }}>↻ RESET</button></div></div>;
+  const graphUI = (
+    <div
+      ref={containerRef}
+      style={{
+        position: "absolute",
+        inset: 0,
+        cursor: "grab",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          zIndex: 3,
+          ...cardStyle,
+          width: 242,
+          padding: 14,
+          pointerEvents: "none",
+          opacity: hovered ? 1 : 0,
+          transform: hovered ? "translateY(0)" : "translateY(8px)",
+          transition: "opacity 180ms, transform 180ms",
+          left: tooltipPosition.x,
+          top: tooltipPosition.y - 190,
+          marginLeft: -121,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            borderBottom: "1px solid rgba(0,255,156,.15)",
+            paddingBottom: 8,
+            marginBottom: 9,
+            font: `10px ${mono}`,
+          }}
+        >
+          <strong style={{ color: colors.text }}>
+            {hovered?.name}
+          </strong>
+          <span style={{ color: colors.neon, fontSize: 8 }}>
+            {hovered?.group?.toUpperCase()}
+          </span>
+        </div>
+  
+        <p
+          style={{
+            margin: "0 0 12px",
+            color: colors.muted,
+            font: `11px ${mono}`,
+            lineHeight: 1.5,
+          }}
+        >
+          {hovered?.description}
+        </p>
+  
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 6,
+            color: colors.muted,
+            font: `9px ${mono}`,
+          }}
+        >
+          <span style={{ ...cardStyle, padding: 7 }}>
+            REPOSITORIES<br />
+            <b style={{ color: colors.text }}>
+              {hovered?.repositories}
+            </b>
+          </span>
+  
+          <span style={{ ...cardStyle, padding: 7 }}>
+            TELEMETRY<br />
+            <b style={{ color: colors.text }}>
+              {hovered?.commits} commits
+            </b>
+          </span>
+        </div>
+  
+        <div
+          style={{
+            marginTop: 10,
+            paddingTop: 8,
+            borderTop: "1px solid rgba(0,255,156,.1)",
+            color: colors.neon,
+            font: `9px ${mono}`,
+          }}
+        >
+          ● Evidence groundedInspect ↓
+        </div>
+      </div>
+  
+      <div
+        style={{
+          position: "absolute",
+          zIndex: 3,
+          left: 24,
+          bottom: 18,
+          ...cardStyle,
+          padding: "7px 10px",
+          color: colors.muted,
+          font: `9px ${mono}`,
+        }}
+      >
+        HIERARCHY:{" "}
+        <span style={{ color: "#fff" }}>● Root</span>{" "}
+        <span style={{ color: colors.neon }}>● Domain</span>{" "}
+        <span style={{ color: colors.vibrant }}>● Skill</span>{" "}
+        <span style={{ color: colors.dim }}>● Project Evidence</span>
+      </div>
+  
+      <div
+        style={{
+          position: "absolute",
+          zIndex: 3,
+          right: 24,
+          bottom: 18,
+          display: "flex",
+          gap: 3,
+          ...cardStyle,
+          padding: 4,
+        }}
+      >
+        <button
+          onClick={() =>
+            setZoom((value) => Math.min(1.45, value + 0.12))
+          }
+          style={buttonStyle}
+        >
+          ＋
+        </button>
+  
+        <button
+          onClick={() =>
+            setZoom((value) => Math.max(0.75, value - 0.12))
+          }
+          style={buttonStyle}
+        >
+          −
+        </button>
+  
+        <span
+          style={{
+            width: 1,
+            margin: "3px 4px",
+            background: "rgba(0,255,156,.2)",
+          }}
+        />
+  
+        <button
+          onClick={() => setZoom(1)}
+          style={buttonStyle}
+        >
+          ↻ RESET
+        </button>
+      </div>
+    </div>
+  );
+  
+  return graphUI;
 }
 
 const buttonStyle: React.CSSProperties = { border: 0, borderRadius: 3, padding: "4px 7px", background: "transparent", color: colors.muted, cursor: "pointer", font: `10px ${mono}` };
