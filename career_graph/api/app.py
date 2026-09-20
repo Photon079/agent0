@@ -80,6 +80,8 @@ def list_candidates():
                 "id": c.id,
                 "name": c.name,
                 "email": c.email,
+                "location": c.location,
+                "experience_level": c.experience_level,
                 "skills": skill_names,
                 "project_count": proj_count,
             })
@@ -104,6 +106,8 @@ def list_jobs():
                 "title": j.title,
                 "company": j.company,
                 "url": j.url,
+                "location": j.location,
+                "experience_level": j.experience_level,
                 "description": j.description,
                 "skills": [s.canonical_name for s in j.skills],  # eagerly loaded
             }
@@ -234,7 +238,21 @@ async def ingest_unified(
     # 1. Parse Resume if provided
     raw_resume = ""
     if resume_file:
-        raw_resume = (await resume_file.read()).decode("utf-8")
+        content = await resume_file.read()
+        filename = (resume_file.filename or "").lower()
+        if filename.endswith(".pdf") or resume_file.content_type == "application/pdf":
+            import io
+            from pypdf import PdfReader
+            
+            try:
+                reader = PdfReader(io.BytesIO(content))
+                text_pages = [page.extract_text() for page in reader.pages]
+                raw_resume = "\n".join(text_pages)
+            except Exception as e:
+                log.error(f"Failed to parse PDF: {e}")
+                raw_resume = ""
+        else:
+            raw_resume = content.decode("utf-8")
     elif resume_text:
         raw_resume = resume_text
 
@@ -248,10 +266,11 @@ async def ingest_unified(
         ingestor = CandidateIngestor()
         token = github_token or os.getenv("GITHUB_TOKEN")
         
-        # If candidate already created from resume, we can use their name/id context
-        # But ingestor.ingest_github_username handles upsert_candidate internally
-        # which will now match by name thanks to our GraphWriter update!
-        gh_candidate = ingestor.ingest_github_username(github_username, token=token, max_repos=100)
+        # If candidate already created from resume, we can use their name/email context
+        # to guarantee CandidateIngestor attaches projects to the exact same candidate
+        gh_name = candidate.name if candidate else None
+        gh_email = candidate.email if candidate else None
+        gh_candidate = ingestor.ingest_github_username(github_username, token=token, max_repos=100, name=gh_name, email=gh_email)
         if not candidate:
             candidate = gh_candidate
             
@@ -284,14 +303,14 @@ async def parse_job(text: Optional[str] = Form(None), file: Optional[UploadFile]
 # ---------------- Query (Active Backend: FalkorDB / SQLite) ----------------
 
 @app.get("/match/{candidate_id}")
-def match_jobs(candidate_id: str, limit: int = 10):
+def match_jobs(candidate_id: str, limit: int = 50):
     backend = get_active_backend()
     if backend == "falkor":
         try:
             from career_graph.repository_cypher import match_jobs_by_skill_overlap
 
             res = match_jobs_by_skill_overlap(str(candidate_id), limit=limit)
-            return [{"job": r[1], "company": r[2], "overlap": int(r[4])} for r in res.result_set]
+            return [{"job_id": r[0], "job": r[1], "company": r[2], "url": r[3], "overlap": int(r[4])} for r in res.result_set]
         except Exception as e:
             log.warning("FalkorDB match query failed (%s); falling back to SQLite", e)
 
@@ -303,7 +322,7 @@ def match_jobs(candidate_id: str, limit: int = 10):
     except ValueError:
         cand_id_int = 1
     rows = match_jobs_by_skill_overlap(cand_id_int, limit=limit)
-    return [{"job": r[0].title, "company": r[0].company, "overlap": int(r[1])} for r in rows]
+    return [{"job_id": r[0].id, "job": r[0].title, "company": r[0].company, "url": r[0].url, "overlap": int(r[1]), "penalties": r[2]} for r in rows]
 
 
 @app.get("/gap/{candidate_id}/{job_id}")

@@ -10,3 +10,4 @@ moto[sqs,s3]
 prometheus_client
 jsonschema
 falkordb
+pypdf

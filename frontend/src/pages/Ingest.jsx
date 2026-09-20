@@ -10,6 +10,7 @@ export default function Ingest() {
   const [ghUsername, setGhUsername] = useState('');
   const [ghToken, setGhToken] = useState('');
   const [resumeText, setResumeText] = useState('');
+  const [resumeFile, setResumeFile] = useState(null);
   const [candLoading, setCandLoading] = useState(false);
   const [candResult, setCandResult] = useState(null);
   const [candError, setCandError] = useState('');
@@ -28,6 +29,7 @@ export default function Ingest() {
       if (ghUsername.trim()) fd.append('github_username', ghUsername.trim());
       if (ghToken.trim()) fd.append('github_token', ghToken.trim());
       if (resumeText.trim()) fd.append('resume_text', resumeText.trim());
+      if (resumeFile) fd.append('resume_file', resumeFile);
       
       const data = await api.postForm('/ingest/unified', fd);
       if (data.detail || data.error) throw new Error(data.detail || data.error);
@@ -47,6 +49,7 @@ export default function Ingest() {
       const data = await api.postForm('/parse/job', fd);
       if (data.detail) throw new Error(data.detail);
       setJobResult(data);
+      window.dispatchEvent(new CustomEvent('jobs-updated'));
     } catch (e) {
       setJobError(e.message || 'Parse failed');
     }
@@ -77,16 +80,20 @@ export default function Ingest() {
               onChange={e => setGhUsername(e.target.value)} />
           </div>
           <div className="form-group">
-            <label className="form-label">GitHub Access Token <span style={{color:'var(--muted)', fontWeight:400}}>(optional)</span></label>
-            <input className="form-input" placeholder="ghp_…" type="password" value={ghToken}
-              onChange={e => setGhToken(e.target.value)} />
-          </div>
-          <div className="form-group">
             <label className="form-label">Resume Text <span style={{color:'var(--muted)', fontWeight:400}}>(optional)</span></label>
-            <textarea className="form-textarea" style={{minHeight:180}} placeholder="Paste resume text here…"
+            <textarea className="form-textarea" style={{minHeight:140}} placeholder="Paste resume text here…"
               value={resumeText} onChange={e => setResumeText(e.target.value)} />
           </div>
-          <button className="btn btn-primary" onClick={ingestCandidate} disabled={(!ghUsername.trim() && !resumeText.trim()) || candLoading}>
+          <div className="form-group" style={{marginTop:'-0.5rem', marginBottom:'1.5rem'}}>
+            <div style={{display:'flex', alignItems:'center', gap:'1rem'}}>
+              <div style={{flex:1, height:1, background:'var(--border)'}}></div>
+              <div style={{fontSize:'0.8rem', color:'var(--muted)'}}>OR</div>
+              <div style={{flex:1, height:1, background:'var(--border)'}}></div>
+            </div>
+            <label className="form-label" style={{marginTop:'0.75rem'}}>Upload Resume PDF <span style={{color:'var(--muted)', fontWeight:400}}>(optional)</span></label>
+            <input type="file" accept=".pdf,.txt" className="form-input" onChange={e => setResumeFile(e.target.files[0])} />
+          </div>
+          <button className="btn btn-primary" onClick={ingestCandidate} disabled={(!ghUsername.trim() && !resumeText.trim() && !resumeFile) || candLoading}>
             {candLoading ? <><span className="spinner" style={{width:14,height:14,borderWidth:2}} />Ingesting profile…</> : '👤 Ingest Candidate Profile'}
           </button>
 

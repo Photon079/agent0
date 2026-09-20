@@ -59,10 +59,15 @@ def _require_json(value):
 def _bedrock_resume(text: str) -> Dict[str, Any]:
     system = (
         "You extract structured data from software-engineering resumes. "
-        'Return ONLY valid JSON with keys "name", "email" (string or null), '
+        "DO NOT just list surface-level languages like Python or JavaScript. "
+        "You MUST extract highly granular, in-depth technical skills: specific frameworks (e.g. React, Next.js, FastAPI, Spring Boot), "
+        "databases (e.g. PostgreSQL, Redis, MongoDB), cloud services (e.g. AWS S3, EC2, ECS), ML models (e.g. BERT, LLaMA), and architectures. "
+        "Dig deep into the technical stack. "
+        "Also infer the candidate's 'location' (e.g. 'India', 'US', or specific city/country) and 'experience_level' (e.g. 'Junior', 'Mid-Level', 'Senior', 'Lead') based on their timeline. "
+        'Return ONLY valid JSON with keys "name", "email" (string or null), "location" (string or null), "experience_level" (string or null), '
         '"skills" (array of {"name","confidence","evidence"}) and '
         '"projects" (array of {"name","description","url"}). Use exact skill '
-        'names from the text (e.g. "TypeScript", "AWS").'
+        'names from the text.'
     )
     user = f"<resume>\n{text[:12000]}\n</resume>"
     raw = _converse(system, user, RESUME_MODEL)
@@ -70,6 +75,8 @@ def _bedrock_resume(text: str) -> Dict[str, Any]:
     return {
         "name": str(data.get("name") or "Unknown"),
         "email": (data.get("email") or None),
+        "location": (data.get("location") or None),
+        "experience_level": (data.get("experience_level") or None),
         "skills": data.get("skills", []),
         "projects": data.get("projects", []),
     }
@@ -94,19 +101,26 @@ def extract_resume(text: str) -> Dict[str, Any]:
     return parsed
 
 
-# ---------------- Job descriptions ----------------
+# ---------------- Job Postings ----------------
 
 def _bedrock_job_skills(description: str, title: str) -> Dict[str, Any]:
     system = (
-        "You extract required skills from software job descriptions. Return "
-        'ONLY valid JSON: {"skills":[{"name":"Python","importance":1.0}]}. '
+        "You extract required technical skills from software job descriptions. "
+        "DO NOT just list generic languages. You MUST extract granular frameworks (e.g. React, Spring Boot), "
+        "libraries, databases, ML models, cloud architecture components, and specific tools required by the job. "
+        "Also infer the strict 'location' requirement (e.g. 'Remote US', 'India', 'Global Remote', 'San Francisco') and 'experience_level' (e.g. 'Junior', 'Mid-Level', 'Senior', 'Lead'). "
+        'Return ONLY valid JSON: {"skills":[{"name":"FastAPI","importance":1.0}], "location": "US Remote", "experience_level": "Senior"}. '
         "importance is the weight of the requirement (1.0 = required, "
         "0.5 = nice-to-have, 0.2 = rare mention). Deduplicate skills."
     )
     user = f"<job title=\"{title}\">\n{description[:12000]}\n</job>"
     raw = _converse(system, user, JD_MODEL)
     data = _require_json(_parse_json_text(raw))
-    return {"skills": data.get("skills", [])}
+    return {
+        "skills": data.get("skills", []),
+        "location": data.get("location") or None,
+        "experience_level": data.get("experience_level") or None,
+    }
 
 
 def extract_job_skills(description: str, title: str = "") -> Dict[str, Any]:
@@ -125,7 +139,11 @@ def extract_job_skills(description: str, title: str = "") -> Dict[str, Any]:
     parsed = JobParser().parse(description)
     for s in parsed.get("skills", []):
         s["canonical_name"] = normalizer.normalize(s.get("canonical_name") or s.get("name") or "")
-    return {"skills": parsed.get("skills", [])}
+    return {
+        "skills": parsed.get("skills", []),
+        "location": parsed.get("location") or None,
+        "experience_level": parsed.get("experience_level") or None,
+    }
 
 
 # ---------------- GitHub repos ----------------
@@ -139,8 +157,11 @@ def _bedrock_github_repos(repos: List[Dict[str, Any]]) -> Dict[str, Any]:
         return base
 
     system = (
-        "For each GitHub repository, infer the tech skills and dependencies shown in its "
-        'README and dependency files. Return ONLY valid JSON: {"repos":{"repo_name":["Python","AWS","React"]}}. '
+        "For each GitHub repository, infer the in-depth tech skills, libraries, frameworks, ML models, and infrastructure components "
+        "shown in its README and dependency files. "
+        "DO NOT just list basic languages. Extract highly granular, specific dependencies (e.g. 'PyTorch', 'TensorFlow', 'PostgreSQL', 'Redis', 'Docker', 'React', 'FastAPI') "
+        "instead of just the language. Go as deep as possible into the tech stack. "
+        'Return ONLY valid JSON: {"repos":{"repo_name":["FastAPI","Docker","Redis"]}}. '
         "Use exact, canonical skill names."
     )
     user_blocks = []
