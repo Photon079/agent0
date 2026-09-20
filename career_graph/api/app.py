@@ -634,4 +634,18 @@ def tailor_resume_endpoint(req: TailorResumeRequest):
         output_filename=req.output_filename or f"resume_cand{cand_id_int}_job{job_id_int}"
     )
 
-    return result
+    return result
+
+@app.get("/download-resume/{filename}")
+def download_resume(filename: str):
+    import os
+    from fastapi.responses import FileResponse
+    from fastapi import HTTPException
+    
+    # Secure filename: avoid directory traversal
+    safe_filename = os.path.basename(filename)
+    file_path = os.path.join("output", safe_filename)
+    
+    if os.path.exists(file_path):
+        return FileResponse(file_path, filename=safe_filename)
+    raise HTTPException(status_code=404, detail="File not found")

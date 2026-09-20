@@ -84,6 +84,8 @@ export default function CandidateDetail() {
   const [bulletsLoading, setBulletsLoading] = useState(false);
   const [activeBullet, setActiveBullet] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [tailorLoading, setTailorLoading] = useState({});
+  const [tailoredResumeData, setTailoredResumeData] = useState({});
 
   const loadData = useCallback(() => {
     Promise.all([
@@ -194,6 +196,21 @@ export default function CandidateDetail() {
     });
   };
 
+  const tailorResume = (jobId) => {
+    if (!jobId) return;
+    setTailorLoading(prev => ({ ...prev, [jobId]: true }));
+    setTailoredResumeData(prev => ({ ...prev, [jobId]: null }));
+    api.post('/tailor-resume', { candidate_id: String(id), job_id: String(jobId) })
+      .then(data => {
+        setTailoredResumeData(prev => ({ ...prev, [jobId]: data }));
+        setTailorLoading(prev => ({ ...prev, [jobId]: false }));
+      })
+      .catch(err => {
+        console.error("Failed to tailor resume:", err);
+        setTailorLoading(prev => ({ ...prev, [jobId]: false }));
+      });
+  };
+
   if (loading) return <div className="loading"><div className="spinner" /><span>Loading candidate graph...</span></div>;
   if (!candidate) return <div className="empty"><div className="empty-icon">❓</div><div className="empty-text">Candidate not found</div></div>;
 
@@ -267,51 +284,75 @@ export default function CandidateDetail() {
                 : m.tierDiff === 1 ? { background: 'rgba(234,179,8,0.12)', color: '#eab308', border: '1px solid rgba(234,179,8,0.25)' }
                 : { background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' };
               return (
-                <div key={i} className="match-row">
-                  <div className="match-left">
-                    {m.jobMeta?.url || m.url ? (
-                      <a
-                        href={m.jobMeta?.url || m.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="match-title"
-                        style={{color:'var(--accent)', textDecoration:'none'}}
-                        onMouseEnter={e => e.currentTarget.style.textDecoration='underline'}
-                        onMouseLeave={e => e.currentTarget.style.textDecoration='none'}
-                      >
-                        {m.job} ↗
-                      </a>
-                    ) : (
-                      <div className="match-title">{m.job}</div>
-                    )}
-                    <div className="match-company">{m.company}</div>
-                    <div style={{display:'flex', gap:'0.4rem', marginTop:'0.4rem', flexWrap:'wrap'}}>
-                      <span className="badge" style={fitColor}>
-                        {compositePct}% fit
-                      </span>
-                      {m.jobExpTier >= 0 && expBadgeColor && (
-                        <span className="badge" style={expBadgeColor}>
-                          {m.tierDiff === 0 ? '✓' : '⚠'} {m.jobExpLabel || m.jobExpSource.split(' ').find(w => expTier(w) >= 0) || m.jobExpSource}
-                        </span>
+                <div key={i} style={{display:'flex', flexDirection:'column', marginBottom:'1rem'}}>
+                  <div className="match-row" style={{marginBottom:0}}>
+                    <div className="match-left">
+                      {m.jobMeta?.url || m.url ? (
+                        <a
+                          href={m.jobMeta?.url || m.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="match-title"
+                          style={{color:'var(--accent)', textDecoration:'none'}}
+                          onMouseEnter={e => e.currentTarget.style.textDecoration='underline'}
+                          onMouseLeave={e => e.currentTarget.style.textDecoration='none'}
+                        >
+                          {m.job} ↗
+                        </a>
+                      ) : (
+                        <div className="match-title">{m.job}</div>
                       )}
-                      {m.penalties && m.penalties.filter(p => !p.startsWith('Requires')).map((p, idx) => (
-                        <span key={idx} className="badge" style={{background:'rgba(239,68,68,0.1)', color:'#ef4444', border:'1px solid rgba(239,68,68,0.2)'}}>⚠ {p}</span>
-                      ))}
+                      <div className="match-company">{m.company}</div>
+                      <div style={{display:'flex', gap:'0.4rem', marginTop:'0.4rem', flexWrap:'wrap'}}>
+                        <span className="badge" style={fitColor}>
+                          {compositePct}% fit
+                        </span>
+                        {m.jobExpTier >= 0 && expBadgeColor && (
+                          <span className="badge" style={expBadgeColor}>
+                            {m.tierDiff === 0 ? '✓' : '⚠'} {m.jobExpLabel || m.jobExpSource.split(' ').find(w => expTier(w) >= 0) || m.jobExpSource}
+                          </span>
+                        )}
+                        {m.penalties && m.penalties.filter(p => !p.startsWith('Requires')).map((p, idx) => (
+                          <span key={idx} className="badge" style={{background:'rgba(239,68,68,0.1)', color:'#ef4444', border:'1px solid rgba(239,68,68,0.2)'}}>⚠ {p}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="match-overlap">
+                      <div className="overlap-bar">
+                        {/* Bar width driven by composite fit, not raw overlap */}
+                        <div className="overlap-fill" style={{
+                          width: `${compositePct}%`,
+                          background: compositePct >= 70
+                            ? 'linear-gradient(90deg, #22c55e, #16a34a)'
+                            : compositePct >= 45
+                            ? 'linear-gradient(90deg, #eab308, #ca8a04)'
+                            : 'linear-gradient(90deg, #ef4444, #dc2626)',
+                        }} />
+                      </div>
+                      <span className="badge badge-accent">{m.overlap} skills</span>
                     </div>
                   </div>
-                  <div className="match-overlap">
-                    <div className="overlap-bar">
-                      {/* Bar width driven by composite fit, not raw overlap */}
-                      <div className="overlap-fill" style={{
-                        width: `${compositePct}%`,
-                        background: compositePct >= 70
-                          ? 'linear-gradient(90deg, #22c55e, #16a34a)'
-                          : compositePct >= 45
-                          ? 'linear-gradient(90deg, #eab308, #ca8a04)'
-                          : 'linear-gradient(90deg, #ef4444, #dc2626)',
-                      }} />
-                    </div>
-                    <span className="badge badge-accent">{m.overlap} skills</span>
+                  <div style={{padding:'0.75rem 1rem', background:'var(--surface-bg)', border:'1px solid var(--border)', borderTop:'none', borderBottomLeftRadius:'8px', borderBottomRightRadius:'8px'}}>
+                     <button className="btn btn-sm btn-outline" onClick={() => tailorResume(m.job_id)} disabled={tailorLoading[m.job_id]}>
+                       {tailorLoading[m.job_id] ? 'Generating Agentic Resume...' : 'Generate Agentic Resume'}
+                     </button>
+                     {tailoredResumeData[m.job_id] && (
+                       <div className="card" style={{padding:'1rem', background:'var(--surface2)', marginTop: '0.75rem', border:'1px solid var(--border)'}}>
+                         <div style={{fontWeight:700, color:'var(--accent)', marginBottom: '0.75rem'}}>✅ Resume Generated!</div>
+                         <div style={{display:'flex', gap:'0.75rem', flexWrap:'wrap'}}>
+                           {tailoredResumeData[m.job_id].pdf_file && (
+                             <a href={`http://localhost:8000/download-resume/${tailoredResumeData[m.job_id].pdf_file.split('/').pop()}`} target="_blank" rel="noreferrer" download className="btn btn-primary btn-sm">
+                               📥 Download PDF
+                             </a>
+                           )}
+                           {tailoredResumeData[m.job_id].tex_file && (
+                             <a href={`http://localhost:8000/download-resume/${tailoredResumeData[m.job_id].tex_file.split('/').pop()}`} target="_blank" rel="noreferrer" download className="btn btn-outline btn-sm">
+                               📥 Download .tex
+                             </a>
+                           )}
+                         </div>
+                       </div>
+                     )}
                   </div>
                 </div>
               );
