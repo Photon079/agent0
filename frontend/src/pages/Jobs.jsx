@@ -20,9 +20,13 @@ export default function Jobs() {
     setScraping(true);
     setScrapeResult(null);
     try {
-      const result = await api.post('/scrape/jobs', { sources: ['remoteok', 'arbeitnow', 'adzuna'], limit: 20 });
+      const result = await api.post('/scrape/jobs', { sources: ['remoteok', 'remotive', 'adzuna'], limit: 20 });
       setScrapeResult(result);
-      if (!result.error) loadJobs(); // reload list after scrape
+      if (!result.error) {
+        loadJobs(); // reload list after scrape
+        window.dispatchEvent(new CustomEvent('jobs-scraped'));
+        window.dispatchEvent(new CustomEvent('jobs-updated'));
+      }
     } catch (e) {
       setScrapeResult({ error: e.message });
     }
@@ -87,6 +91,8 @@ export default function Jobs() {
                 <div style={{fontWeight:700, fontSize:'1rem'}}>{j.title}</div>
                 <div style={{fontSize:'0.82rem', color:'var(--muted2)', marginTop:'0.2rem'}}>
                   {j.company}
+                  {j.location && ` • ${j.location}`}
+                  {j.experience_level && ` • ${j.experience_level}`}
                   {j.url && (
                     <span style={{marginLeft: '0.5rem'}}>
                       • <a href={j.url} target="_blank" rel="noreferrer" style={{color: 'var(--accent)', textDecoration: 'none'}} onClick={e => e.stopPropagation()}>View Posting ↗</a>

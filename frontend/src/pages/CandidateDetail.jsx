@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 
@@ -57,6 +57,19 @@ function SkillSection({ skillName, projectEvidence, expEvidence }) {
   );
 }
 
+// Experience level tier helper
+const expTier = (label) => {
+  if (!label) return -1;
+  const l = label.toLowerCase();
+  if (l.includes('intern')) return 0;
+  if (l.includes('junior') || l.includes('entry') || l.includes('jr') || l.includes('associate')) return 1;
+  if (l.includes('mid') || l.includes('intermediate')) return 2;
+  if (l.includes('senior') || l.includes('sr')) return 3;
+  if (l.includes('lead') || l.includes('staff') || l.includes('principal')) return 4;
+  if (l.includes('manager') || l.includes('director') || l.includes('head')) return 5;
+  return -1;
+};
+
 export default function CandidateDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -72,21 +85,93 @@ export default function CandidateDetail() {
   const [activeBullet, setActiveBullet] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
     Promise.all([
       api.get('/candidates'),
       api.get(`/evidence/candidate/${id}`),
-      api.get(`/match/${id}`),
+      api.get(`/match/${id}?limit=50`),
       api.get('/jobs'),
     ]).then(([cs, ev, m, j]) => {
       const cand = cs.find(c => c.id == id);
       setCandidate(cand);
       setEvidence(ev);
-      setMatches(m.slice(0, 10));
       setJobs(j);
+
+      const jobMap = {};
+      j.forEach(job => {
+        if (job.id) jobMap['id:' + job.id] = job;
+        if (job.url) jobMap['url:' + job.url] = job;
+        jobMap[job.title + '|' + job.company] = job;
+      });
+
+      const candExpTierRaw = expTier(cand?.experience_level);
+      const candExpTier = candExpTierRaw >= 0 ? candExpTierRaw : 1;
+
+      const maxOverlap = Math.max(...m.map(match => match.overlap), 1);
+
+      const enriched = m.map(match => {
+        const jobMeta = (match.job_id && jobMap['id:' + match.job_id]) ||
+                        (match.url && jobMap['url:' + match.url]) ||
+                        jobMap[match.job + '|' + match.company] || null;
+        const jobExpLabel = jobMeta?.experience_level || null;
+        const jobExpSource = jobExpLabel || match.job || '';
+        const jobExpTier = expTier(jobExpSource);
+        const tierDiff = (candExpTier >= 0 && jobExpTier >= 0) ? Math.abs(candExpTier - jobExpTier) : -1;
+
+        const expFactor = tierDiff < 0 ? 1.0
+          : tierDiff === 0 ? 1.0
+          : tierDiff === 1 ? 0.7
+          : tierDiff === 2 ? 0.35
+          : 0.1;
+
+        const jobTotalSkills = jobMeta?.skills?.length || 0;
+        const skillPct = jobTotalSkills > 0 ? (match.overlap / jobTotalSkills) : null;
+        const compositePct = skillPct !== null
+          ? Math.round((skillPct * 0.4 + expFactor * 0.6) * 100)
+          : Math.min(100, Math.round((match.overlap / maxOverlap) * 100));
+
+        return {
+          ...match,
+          jobMeta,
+          jobExpLabel,
+          jobExpSource,
+          jobExpTier,
+          tierDiff,
+          expFactor,
+          compositePct: Math.max(0, Math.min(100, compositePct)),
+        };
+      });
+
+      // Rank strictly from 100% match down to low match
+      enriched.sort((a, b) => b.compositePct - a.compositePct || b.overlap - a.overlap);
+
+      setMatches(enriched);
+      setLoading(false);
+    }).catch(err => {
+      console.error("Failed to load candidate matches:", err);
       setLoading(false);
     });
   }, [id]);
+
+  useEffect(() => {
+    loadData();
+
+    const handleUpdate = () => {
+      loadData();
+    };
+
+    window.addEventListener('jobs-scraped', handleUpdate);
+    window.addEventListener('jobs-updated', handleUpdate);
+
+    // Poll every 5 seconds so background scrapes automatically trigger updates
+    const interval = setInterval(loadData, 5000);
+
+    return () => {
+      window.removeEventListener('jobs-scraped', handleUpdate);
+      window.removeEventListener('jobs-updated', handleUpdate);
+      clearInterval(interval);
+    };
+  }, [id, loadData]);
 
   const analyzeGap = () => {
     if (!selectedJob) return;
@@ -112,7 +197,8 @@ export default function CandidateDetail() {
   if (loading) return <div className="loading"><div className="spinner" /><span>Loading candidate graph...</span></div>;
   if (!candidate) return <div className="empty"><div className="empty-icon">❓</div><div className="empty-text">Candidate not found</div></div>;
 
-  const maxOverlap = Math.max(...matches.map(m => m.overlap), 1);
+  const candExpTierRaw = expTier(candidate?.experience_level);
+  const candExpTier = candExpTierRaw >= 0 ? candExpTierRaw : 1;
 
   return (
     <div>
@@ -169,16 +255,61 @@ export default function CandidateDetail() {
           <div className="section-title">🎯 Job Matches</div>
           <div style={{marginBottom:'1.5rem'}}>
             {matches.map((m, i) => {
-              const pct = Math.round((m.overlap / maxOverlap) * 100);
+              const compositePct = m.compositePct;
+
+              // Badge colour based on composite score
+              const fitColor = compositePct >= 70 ? { background: 'rgba(34,197,94,0.12)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.25)' }
+                : compositePct >= 45 ? { background: 'rgba(234,179,8,0.12)', color: '#eab308', border: '1px solid rgba(234,179,8,0.25)' }
+                : { background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' };
+
+              const expBadgeColor = m.tierDiff < 0 ? null
+                : m.tierDiff === 0 ? { background: 'rgba(34,197,94,0.12)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.25)' }
+                : m.tierDiff === 1 ? { background: 'rgba(234,179,8,0.12)', color: '#eab308', border: '1px solid rgba(234,179,8,0.25)' }
+                : { background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' };
               return (
                 <div key={i} className="match-row">
                   <div className="match-left">
-                    <div className="match-title">{m.job}</div>
+                    {m.jobMeta?.url || m.url ? (
+                      <a
+                        href={m.jobMeta?.url || m.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="match-title"
+                        style={{color:'var(--accent)', textDecoration:'none'}}
+                        onMouseEnter={e => e.currentTarget.style.textDecoration='underline'}
+                        onMouseLeave={e => e.currentTarget.style.textDecoration='none'}
+                      >
+                        {m.job} ↗
+                      </a>
+                    ) : (
+                      <div className="match-title">{m.job}</div>
+                    )}
                     <div className="match-company">{m.company}</div>
+                    <div style={{display:'flex', gap:'0.4rem', marginTop:'0.4rem', flexWrap:'wrap'}}>
+                      <span className="badge" style={fitColor}>
+                        {compositePct}% fit
+                      </span>
+                      {m.jobExpTier >= 0 && expBadgeColor && (
+                        <span className="badge" style={expBadgeColor}>
+                          {m.tierDiff === 0 ? '✓' : '⚠'} {m.jobExpLabel || m.jobExpSource.split(' ').find(w => expTier(w) >= 0) || m.jobExpSource}
+                        </span>
+                      )}
+                      {m.penalties && m.penalties.filter(p => !p.startsWith('Requires')).map((p, idx) => (
+                        <span key={idx} className="badge" style={{background:'rgba(239,68,68,0.1)', color:'#ef4444', border:'1px solid rgba(239,68,68,0.2)'}}>⚠ {p}</span>
+                      ))}
+                    </div>
                   </div>
                   <div className="match-overlap">
                     <div className="overlap-bar">
-                      <div className="overlap-fill" style={{width:`${pct}%`}} />
+                      {/* Bar width driven by composite fit, not raw overlap */}
+                      <div className="overlap-fill" style={{
+                        width: `${compositePct}%`,
+                        background: compositePct >= 70
+                          ? 'linear-gradient(90deg, #22c55e, #16a34a)'
+                          : compositePct >= 45
+                          ? 'linear-gradient(90deg, #eab308, #ca8a04)'
+                          : 'linear-gradient(90deg, #ef4444, #dc2626)',
+                      }} />
                     </div>
                     <span className="badge badge-accent">{m.overlap} skills</span>
                   </div>

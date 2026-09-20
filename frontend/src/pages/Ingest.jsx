@@ -3,21 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 
 export default function Ingest() {
-  const [tab, setTab] = useState('github');
+  const [tab, setTab] = useState('candidate');
   const navigate = useNavigate();
 
-  // GitHub tab state
+  // Unified Candidate tab state
   const [ghUsername, setGhUsername] = useState('');
   const [ghToken, setGhToken] = useState('');
-  const [ghLoading, setGhLoading] = useState(false);
-  const [ghResult, setGhResult] = useState(null);
-  const [ghError, setGhError] = useState('');
-
-  // Resume tab state
   const [resumeText, setResumeText] = useState('');
-  const [resumeLoading, setResumeLoading] = useState(false);
-  const [resumeResult, setResumeResult] = useState(null);
-  const [resumeError, setResumeError] = useState('');
+  const [resumeFile, setResumeFile] = useState(null);
+  const [candLoading, setCandLoading] = useState(false);
+  const [candResult, setCandResult] = useState(null);
+  const [candError, setCandError] = useState('');
 
   // Job tab state
   const [jobText, setJobText] = useState('');
@@ -25,36 +21,23 @@ export default function Ingest() {
   const [jobResult, setJobResult] = useState(null);
   const [jobError, setJobError] = useState('');
 
-  const ingestGithub = async () => {
-    if (!ghUsername.trim()) return;
-    setGhLoading(true); setGhResult(null); setGhError('');
-    try {
-      const data = await api.post('/ingest/github', {
-        username: ghUsername.trim(),
-        token: ghToken.trim() || undefined,
-        max_repos: 100,
-      });
-      if (data.detail) throw new Error(data.detail);
-      setGhResult(data);
-    } catch (e) {
-      setGhError(e.message || 'Ingestion failed');
-    }
-    setGhLoading(false);
-  };
-
-  const ingestResume = async () => {
-    if (!resumeText.trim()) return;
-    setResumeLoading(true); setResumeResult(null); setResumeError('');
+  const ingestCandidate = async () => {
+    if (!ghUsername.trim() && !resumeText.trim()) return;
+    setCandLoading(true); setCandResult(null); setCandError('');
     try {
       const fd = new FormData();
-      fd.append('text', resumeText);
-      const data = await api.postForm('/parse/resume', fd);
-      if (data.detail) throw new Error(data.detail);
-      setResumeResult(data);
+      if (ghUsername.trim()) fd.append('github_username', ghUsername.trim());
+      if (ghToken.trim()) fd.append('github_token', ghToken.trim());
+      if (resumeText.trim()) fd.append('resume_text', resumeText.trim());
+      if (resumeFile) fd.append('resume_file', resumeFile);
+      
+      const data = await api.postForm('/ingest/unified', fd);
+      if (data.detail || data.error) throw new Error(data.detail || data.error);
+      setCandResult(data);
     } catch (e) {
-      setResumeError(e.message || 'Parse failed');
+      setCandError(e.message || 'Ingestion failed');
     }
-    setResumeLoading(false);
+    setCandLoading(false);
   };
 
   const ingestJob = async () => {
@@ -66,6 +49,7 @@ export default function Ingest() {
       const data = await api.postForm('/parse/job', fd);
       if (data.detail) throw new Error(data.detail);
       setJobResult(data);
+      window.dispatchEvent(new CustomEvent('jobs-updated'));
     } catch (e) {
       setJobError(e.message || 'Parse failed');
     }
@@ -80,76 +64,47 @@ export default function Ingest() {
       </div>
 
       <div className="tabs">
-        <button className={`tab ${tab === 'github' ? 'active' : ''}`} onClick={() => setTab('github')}>⬡ GitHub</button>
-        <button className={`tab ${tab === 'resume' ? 'active' : ''}`} onClick={() => setTab('resume')}>📄 Resume</button>
+        <button className={`tab ${tab === 'candidate' ? 'active' : ''}`} onClick={() => setTab('candidate')}>👤 Candidate Profile</button>
         <button className={`tab ${tab === 'job' ? 'active' : ''}`} onClick={() => setTab('job')}>💼 Job Posting</button>
       </div>
 
-      {/* ── GitHub Tab ── */}
-      {tab === 'github' && (
+      {/* ── Candidate Profile Tab ── */}
+      {tab === 'candidate' && (
         <div className="card">
           <p style={{fontSize:'0.85rem', color:'var(--muted2)', marginBottom:'1.25rem', lineHeight:1.6}}>
-            Fetches all public repos, extracts languages and commit counts, and writes the candidate into the graph.
+            Ingest a complete candidate profile by providing their GitHub username, pasting their Resume, or both. Both sources will be unified into a single graph node.
           </p>
           <div className="form-group">
-            <label className="form-label">GitHub Username</label>
+            <label className="form-label">GitHub Username <span style={{color:'var(--muted)', fontWeight:400}}>(optional)</span></label>
             <input className="form-input" placeholder="e.g. Photon079" value={ghUsername}
-              onChange={e => setGhUsername(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && ingestGithub()} />
+              onChange={e => setGhUsername(e.target.value)} />
           </div>
           <div className="form-group">
-            <label className="form-label">Personal Access Token <span style={{color:'var(--muted)', fontWeight:400}}>(optional — 5000 req/hr vs 60)</span></label>
-            <input className="form-input" placeholder="ghp_…" type="password" value={ghToken}
-              onChange={e => setGhToken(e.target.value)} />
-          </div>
-          <button className="btn btn-primary" onClick={ingestGithub} disabled={!ghUsername.trim() || ghLoading}>
-            {ghLoading ? <><span className="spinner" style={{width:14,height:14,borderWidth:2}} />Ingesting repos…</> : '⬡ Ingest GitHub Profile'}
-          </button>
-
-          {ghError && <div className="alert alert-error" style={{marginTop:'1rem'}}>⚠ {ghError}</div>}
-          {ghResult && (
-            <div className="alert alert-success" style={{marginTop:'1rem'}}>
-              <div style={{fontWeight:600, marginBottom:'0.5rem'}}>
-                ✅ Ingested <strong>{ghResult.name}</strong> — candidate #{ghResult.candidate_id}
-              </div>
-              <div style={{fontSize:'0.82rem', marginBottom:'0.5rem'}}>
-                {ghResult.project_count} repos · {ghResult.skills.length} skills detected
-              </div>
-              <div className="skill-tags">
-                {ghResult.skills.map(s => <span key={s} className={`skill-tag skill-${s.toLowerCase().replace('#','sharp')}`}>{s}</span>)}
-              </div>
-              <button className="btn btn-secondary" style={{marginTop:'0.75rem'}}
-                onClick={() => navigate(`/candidates/${ghResult.candidate_id}`)}>
-                View Candidate →
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Resume Tab ── */}
-      {tab === 'resume' && (
-        <div className="card">
-          <p style={{fontSize:'0.85rem', color:'var(--muted2)', marginBottom:'1.25rem', lineHeight:1.6}}>
-            Paste resume text. The parser extracts skills and experience nodes into the graph.
-            Enable <code style={{fontFamily:'JetBrains Mono',fontSize:'0.8rem', background:'var(--surface2)',padding:'0.1rem 0.4rem',borderRadius:'4px'}}>CAREER_GRAPH_USE_BEDROCK=1</code> for Claude-powered extraction.
-          </p>
-          <div className="form-group">
-            <label className="form-label">Resume Text</label>
-            <textarea className="form-textarea" style={{minHeight:220}} placeholder="Paste resume text here…"
+            <label className="form-label">Resume Text <span style={{color:'var(--muted)', fontWeight:400}}>(optional)</span></label>
+            <textarea className="form-textarea" style={{minHeight:140}} placeholder="Paste resume text here…"
               value={resumeText} onChange={e => setResumeText(e.target.value)} />
           </div>
-          <button className="btn btn-primary" onClick={ingestResume} disabled={!resumeText.trim() || resumeLoading}>
-            {resumeLoading ? <><span className="spinner" style={{width:14,height:14,borderWidth:2}} />Parsing…</> : '📄 Parse Resume'}
+          <div className="form-group" style={{marginTop:'-0.5rem', marginBottom:'1.5rem'}}>
+            <div style={{display:'flex', alignItems:'center', gap:'1rem'}}>
+              <div style={{flex:1, height:1, background:'var(--border)'}}></div>
+              <div style={{fontSize:'0.8rem', color:'var(--muted)'}}>OR</div>
+              <div style={{flex:1, height:1, background:'var(--border)'}}></div>
+            </div>
+            <label className="form-label" style={{marginTop:'0.75rem'}}>Upload Resume PDF <span style={{color:'var(--muted)', fontWeight:400}}>(optional)</span></label>
+            <input type="file" accept=".pdf,.txt" className="form-input" onChange={e => setResumeFile(e.target.files[0])} />
+          </div>
+          <button className="btn btn-primary" onClick={ingestCandidate} disabled={(!ghUsername.trim() && !resumeText.trim() && !resumeFile) || candLoading}>
+            {candLoading ? <><span className="spinner" style={{width:14,height:14,borderWidth:2}} />Ingesting profile…</> : '👤 Ingest Candidate Profile'}
           </button>
 
-          {resumeError && <div className="alert alert-error" style={{marginTop:'1rem'}}>⚠ {resumeError}</div>}
-          {resumeResult && (
+          {candError && <div className="alert alert-error" style={{marginTop:'1rem'}}>⚠ {candError}</div>}
+          {candResult && (
             <div className="alert alert-success" style={{marginTop:'1rem'}}>
-              <div style={{fontWeight:600, marginBottom:'0.4rem'}}>✅ Parsed — candidate #{resumeResult.candidate_id}</div>
-              <div style={{fontSize:'0.82rem', color:'var(--green)'}}>Name: {resumeResult.name}</div>
+              <div style={{fontWeight:600, marginBottom:'0.5rem'}}>
+                ✅ Ingested <strong>{candResult.name}</strong> — candidate #{candResult.candidate_id}
+              </div>
               <button className="btn btn-secondary" style={{marginTop:'0.75rem'}}
-                onClick={() => navigate(`/candidates/${resumeResult.candidate_id}`)}>
+                onClick={() => navigate(`/candidates/${candResult.candidate_id}`)}>
                 View Candidate →
               </button>
             </div>

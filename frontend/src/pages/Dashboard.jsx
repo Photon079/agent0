@@ -64,7 +64,13 @@ export default function Dashboard() {
             {candidates.slice(0,6).map(c => (
               <div key={c.id} className="card card-clickable" onClick={() => navigate(`/candidates/${c.id}`)}>
                 <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.6rem'}}>
-                  <div style={{fontWeight:600, fontSize:'0.95rem'}}>{c.name || `Candidate #${c.id}`}</div>
+                  <div>
+                    <div style={{fontWeight:600, fontSize:'0.95rem'}}>{c.name || `Candidate #${c.id}`}</div>
+                    <div style={{fontSize:'0.75rem', color:'var(--muted2)'}}>
+                      {c.experience_level && `${c.experience_level} `} 
+                      {c.location && `• ${c.location}`}
+                    </div>
+                  </div>
                   <span className="badge badge-muted">{c.project_count} repos</span>
                 </div>
                 <div className="skill-tags">
@@ -87,7 +93,11 @@ export default function Dashboard() {
                 <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.6rem'}}>
                   <div>
                     <div style={{fontWeight:600, fontSize:'0.9rem'}}>{j.title}</div>
-                    <div style={{fontSize:'0.78rem', color:'var(--muted2)'}}>{j.company}</div>
+                    <div style={{fontSize:'0.78rem', color:'var(--muted2)'}}>
+                      {j.company} 
+                      {j.location && ` • ${j.location}`}
+                      {j.experience_level && ` • ${j.experience_level}`}
+                    </div>
                   </div>
                   <span className="badge badge-accent">{j.skills.length} skills</span>
                 </div>

@@ -20,6 +20,8 @@ def upgrade():
         sa.Column('id', sa.Integer(), primary_key=True),
         sa.Column('name', sa.String(length=255), nullable=False),
         sa.Column('email', sa.String(length=255), nullable=True),
+        sa.Column('location', sa.String(length=255), nullable=True),
+        sa.Column('experience_level', sa.String(length=128), nullable=True),
         sa.Column('created_at', sa.DateTime(), nullable=True),
     )
 
@@ -60,6 +62,9 @@ def upgrade():
         sa.Column('company', sa.String(length=255), nullable=True),
         sa.Column('description', sa.Text(), nullable=True),
         sa.Column('source', sa.String(length=128), nullable=True),
+        sa.Column('url', sa.String(length=512), nullable=True),
+        sa.Column('location', sa.String(length=255), nullable=True),
+        sa.Column('experience_level', sa.String(length=128), nullable=True),
         sa.Column('posted_at', sa.DateTime(), nullable=True),
     )
 

@@ -43,28 +43,36 @@ class GraphWriter:
             session.refresh(skill)
             return skill
 
-    def upsert_candidate(self, name: str, email: Optional[str] = None) -> Candidate:
+    def upsert_candidate(self, name: str, email: Optional[str] = None, location: Optional[str] = None, experience_level: Optional[str] = None) -> Candidate:
+        from sqlalchemy import func
         with get_session() as session:
+            candidate = None
+            
+            # 1. Try to find by email
             if email:
-                stmt = select(Candidate).where(Candidate.email == email)
-                candidate = session.scalars(stmt).first()
-                if candidate:
-                    candidate.name = name or candidate.name
-                    session.add(candidate)
-                    session.commit()
-                    session.refresh(candidate)
-                    return candidate
+                candidate = session.scalars(select(Candidate).where(Candidate.email == email)).first()
 
-            # No email (e.g. GitHub ingestion): deduplicate by name so
-            # re-ingesting the same GitHub username doesn't create a new row.
-            if name:
-                stmt = select(Candidate).where(Candidate.name == name, Candidate.email == None)  # noqa: E711
-                candidate = session.scalars(stmt).first()
-                if candidate:
-                    session.refresh(candidate)
-                    return candidate
+            # 2. Try to find by name (case-insensitive) if not found by email
+            if not candidate and name:
+                candidate = session.scalars(select(Candidate).where(func.lower(Candidate.name) == name.lower())).first()
 
-            candidate = Candidate(name=name, email=email)
+            # 3. If found, update missing fields
+            if candidate:
+                if not candidate.email and email:
+                    candidate.email = email
+                if not candidate.name and name:
+                    candidate.name = name
+                if not candidate.location and location:
+                    candidate.location = location
+                if not candidate.experience_level and experience_level:
+                    candidate.experience_level = experience_level
+                session.add(candidate)
+                session.commit()
+                session.refresh(candidate)
+                return candidate
+
+            # 4. Create new
+            candidate = Candidate(name=name, email=email, location=location, experience_level=experience_level)
             session.add(candidate)
             session.commit()
             session.refresh(candidate)
@@ -94,19 +102,21 @@ class GraphWriter:
             session.refresh(proj)
             return proj
 
-    def upsert_jobposting(self, title: str, company: Optional[str] = None, description: Optional[str] = None, source: Optional[str] = None, url: Optional[str] = None) -> JobPosting:
+    def upsert_jobposting(self, title: str, company: Optional[str] = None, description: Optional[str] = None, source: Optional[str] = None, url: Optional[str] = None, location: Optional[str] = None, experience_level: Optional[str] = None) -> JobPosting:
         with get_session() as session:
             stmt = select(JobPosting).where(JobPosting.title == title).where(JobPosting.company == company)
             job = session.scalars(stmt).first()
             if job:
                 job.description = description or job.description
                 job.url = url or job.url
+                job.location = location or job.location
+                job.experience_level = experience_level or job.experience_level
                 session.add(job)
                 session.commit()
                 session.refresh(job)
                 return job
 
-            job = JobPosting(title=title, company=company, description=description, source=source, url=url)
+            job = JobPosting(title=title, company=company, description=description, source=source, url=url, location=location, experience_level=experience_level)
             session.add(job)
             session.commit()
             session.refresh(job)
@@ -154,7 +164,12 @@ class GraphWriter:
             "projects": [ {"name":..., "description":..., "url":..., "commit_count":..., "skills": ["Python"] }, ... ]
         }
         """
-        candidate = self.upsert_candidate(parsed.get("name"), parsed.get("email"))
+        candidate = self.upsert_candidate(
+            parsed.get("name"),
+            parsed.get("email"),
+            location=parsed.get("location"),
+            experience_level=parsed.get("experience_level")
+        )
 
         # skills
         for s in parsed.get("skills", []):

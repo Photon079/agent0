@@ -52,7 +52,7 @@ class CandidateIngestor:
         self._mirror_candidate(candidate, parsed)
         return candidate
 
-    def ingest_github_username(self, username: str, token: Optional[str] = None, max_repos: int = 10) -> Any:
+    def ingest_github_username(self, username: str, token: Optional[str] = None, max_repos: int = 10, name: Optional[str] = None, email: Optional[str] = None) -> Any:
         from .github_fetcher import fetch_github_repos
 
         try:
@@ -64,7 +64,7 @@ class CandidateIngestor:
             ) from e
         if not repos:
             raise RuntimeError(f"No public repositories found for '{username}'")
-        return self.ingest_github_repos(repos, name=username, email=None)
+        return self.ingest_github_repos(repos, name=name or username, email=email)
 
     def _mirror_candidate(self, candidate, parsed: Dict):
         try:

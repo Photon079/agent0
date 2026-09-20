@@ -45,11 +45,24 @@ class JobProcessor:
         if not title:
             raise ValueError("job missing title")
 
+        extracted_data = {}
         requirements = job.get("requirements")
         if requirements is None:
-            requirements = extract_job_skills(description, title).get("skills", [])
+            extracted_data = extract_job_skills(description, title)
+            requirements = extracted_data.get("skills", [])
 
-        posting = self.gw.upsert_jobposting(title, company=company, description=description, source=job.get("source") or "scraper", url=job.get("url"))
+        location = job.get("location") or extracted_data.get("location")
+        experience_level = job.get("experience_level") or extracted_data.get("experience_level")
+
+        posting = self.gw.upsert_jobposting(
+            title,
+            company=company,
+            description=description,
+            source=job.get("source") or "scraper",
+            url=job.get("url"),
+            location=location,
+            experience_level=experience_level
+        )
 
         seen, requirements_out = set(), []
         for r in requirements:

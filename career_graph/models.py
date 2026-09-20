@@ -47,6 +47,8 @@ class Candidate(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False)
     email = Column(String(255), nullable=True)
+    location = Column(String(255), nullable=True)
+    experience_level = Column(String(128), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     skills = relationship("Skill", secondary=candidate_skill, back_populates="candidates")
@@ -106,6 +108,8 @@ class JobPosting(Base):
     description = Column(Text, nullable=True)
     source = Column(String(128), nullable=True)
     url = Column(String(512), nullable=True)
+    location = Column(String(255), nullable=True)
+    experience_level = Column(String(128), nullable=True)
     posted_at = Column(DateTime, default=datetime.utcnow)
 
     skills = relationship("Skill", secondary=job_requirement, back_populates="job_postings")
