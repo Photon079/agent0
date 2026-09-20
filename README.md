@@ -1,145 +1,95 @@
-# Graph-Grounded Career Agent
+# Agent0: Graph-Grounded Career Intelligence
 
-Graph-grounded career agent: ingests a resume + GitHub, builds a knowledge graph of
-skills/projects, pulls job postings, matches jobs by skill overlap, and surfaces gaps.
-Two graph backends are supported:
+Agent0 is a next-generation career intelligence platform. It ingests a candidate's resume and GitHub profile, builds a powerful knowledge graph of their skills and projects, pulls active job postings, intelligently matches them by skill overlap and experience tier, and surfaces actionable skill gaps. 
 
-1. **Relational (SQLite + SQLAlchemy)** — default, zero-setup, fully tested.
-2. **FalkorDB (graph DB)** — runs in Docker; the PRD's "primary source of truth" target.
+It features an interactive **React/Vite Frontend** and a **FastAPI Intelligence Layer** capable of dynamically generating Proof-Backed LaTeX/PDF Resumes customized to specific job descriptions.
 
-## Layout
+## Complete Feature Set (Production Ready)
 
-```
-career_graph/
-  models.py               # SQLAlchemy nodes: Candidate/Skill/Project/Experience/JobPosting + edges
-  db.py                   # SQLAlchemy engine/session (DATABASE_URL env)
-  graph_writer.py         # relational GraphWriter (upserts nodes/edges)
-  repository.py           # relational queries: overlap match, gap detection, evidence
-  falkor.py               # FalkorDB client + query()
-  graph_writer_falkor.py  # writes Candidate/Project/Skill/JobPosting into FalkorDB
-  repository_cypher.py    # Cypher: overlap match, gap detection, evidence
-  api/app.py              # FastAPI: /parse/resume, /parse/github, /parse/job, /match, /gap, /evidence
-  normalizer/             # alias-based skill canonicalization (skill-aliases.json)
-  parsers/                # heuristic resume/github/job parsers + JSON schema validator
-  extraction/             # Bedrock (Claude Haiku) structured extraction + heuristic fallback
-  scraper/                # job scraper: Greenhouse/Lever/RemoteOK/Arbeitnow + fixtures,
-                          # HTML stripping, SQS producer, EventBridge lambda handler
-  ingestion/              # SQS consumers (full + minimal), JobProcessor, CandidateIngestor,
-                          # GitHub API fetcher, S3/SQS adapters, FalkorDB mirroring helper
-scripts/
-  create_db.py, seed_data.py, seed_jobs.py
-  run_api.py              # uvicorn career_graph.api.app:app
-  run_scraper.py          # scrape job postings -> SQS or fixtures/scraped/jobs.json
-  process_jobs.py         # parse + write scraped jobs into the graph (relational + FalkorDB)
-  ingest_candidate.py     # ingest resume (.txt/.pdf) and/or GitHub username into the graph
-  run_sqs_consumer.py     # full consumer (DLQ, backoff, Prometheus, threads)
-  run_sqs_consumer_minimal.py
-  run_ingest.py           # process files in fixtures/inbox
-  run_falkordb.sh         # start FalkorDB Docker container
-  falkor_verification.py  # end-to-end FalkorDB checklist (PRD Friday path)
-alembic/                  # SQLAlchemy migrations
-fixtures/jobs.json        # seed job postings
-fixtures/scraped/         # local scrape output (S3 bucket stand-in)
-fixtures/resume_sample.txt
-tests/                    # pytest suite (relational + SQS/moto + schema + scraper + ingestion)
-```
+1. **Unified Candidate Ingestion**
+   - Ingests both a PDF Resume and a GitHub username in a single flow.
+   - Extracts a rich array of modern frameworks, soft skills, and primary languages.
+2. **Job Scraping & Matching**
+   - Built-in job scraper hits Greenhouse, Lever, RemoteOK, and Arbeitnow.
+   - Multiplicative ranking algorithm matches candidates to jobs while heavily penalizing experience mismatches (e.g., preventing Junior candidates from matching Senior roles).
+3. **Intelligence Layer: Gap Analysis & Micro-Projects**
+   - Identifies exact missing skills for a job.
+   - Uses AWS Bedrock (Claude) to generate actionable, step-by-step micro-projects with direct links to learning resources (like freeCodeCamp) to bridge the gap.
+4. **Agentic Resume Generation**
+   - Programmatically drafts a customized, LaTeX-based `.pdf` resume proving the candidate's exact fit for a specific role based on their graph evidence.
+5. **Docker Deployment Architecture**
+   - Pre-configured `Dockerfile` and `docker-compose.yml` for instantaneous deployment on AWS EC2 or any Linux host.
 
-## Quick start
+---
 
+## 🚀 Quick Start (Local Development)
+
+### Backend (Python/FastAPI)
 ```bash
+# 1. Setup virtual environment
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-make seed         # create DB + seed candidate/job
-make runserver    # FastAPI on :8000
+
+# 2. Seed the database with mock jobs
+make seed
+
+# 3. Run the API (Listening on http://localhost:8000)
+make runserver
 ```
 
-Useful endpoints:
+### Frontend (React/Vite)
+Open a separate terminal window:
+```bash
+# 1. Navigate to the frontend directory
+cd frontend
 
-- `POST /parse/resume` (form `text` or file) → `candidate_id`
-- `POST /parse/github` (JSON `{repos, name, email}`) → projects
-- `POST /parse/job` (form `text` or file) → `job_id`
-- `GET  /match/{candidate_id}` → ranked jobs by skill overlap
-- `GET  /gap/{candidate_id}/{job_id}` → missing skills
-- `GET  /evidence/skill/{skill_id}` → evidence for a skill
+# 2. Install dependencies
+npm install
 
-## SQS consumer
+# 3. Start the Vite dev server
+npm run dev
+```
 
-Poll a queue; messages are JSON with a `type` of `resume`, `github`, or `job`.
-The `job` message body is the normalized scraper output (`{"type":"job","job":{...}}`).
+> [!IMPORTANT]
+> **Camera / Webcam Permissions:** The new Agent0 UI features a highly dynamic, interactive webcam-based particle effect. When you open the frontend (`http://localhost:5173`), your browser will ask for Camera permissions. **You must "Allow" this permission** for the visual effects to initialize correctly!
+
+---
+
+## 🐳 Quick Start (AWS / Docker Deployment)
+
+If you are deploying this to an AWS EC2 instance, you do not need to install Python or Node locally. The entire application (Frontend, Backend, and the LaTeX PDF compiler) is packaged in Docker.
 
 ```bash
-SQS_QUEUE_URL=<queue-url> make runconsumer        # full consumer (DLQ/metrics/backoff)
-SQS_QUEUE_URL=<queue-url> make runconsumerminimal # single-threaded prototype
+# 1. Clone the repository on your EC2 Ubuntu instance
+git clone <your-repo-url>
+cd agent0
+
+# 2. Start the entire platform
+sudo docker-compose up -d --build
+```
+- The **Frontend** will be available on Port `80` (Standard HTTP).
+- The **Backend API** will run on Port `8000`.
+- All SQLite databases and generated PDFs are stored in shared volumes so no data is lost on restart.
+
+---
+
+## Architecture
+
+```text
+frontend/                 # Modern React/Vite UI (Agent0 Dashboard & Graph View)
+career_graph/
+  api/app.py              # FastAPI endpoints (/ingest/unified, /match, /scrape/jobs, /tailor-resume)
+  extraction/bedrock.py   # Claude AI integration for Micro-projects
+  parsers/                # Heuristic keyword parsers (GitHub & Resumes)
+  resume/                 # Pipeline for LaTeX/PDF Resume Generation
+  repository.py           # Core SQL Relational matching & gap detection
+scripts/                  # Database seed scripts
+docker-compose.yml        # AWS Deployment orchestration
 ```
 
-Set `SQS_DLQ_URL` (+ `SQS_DLQ_THRESHOLD`, default 5) and `METRICS_PORT` for the extras.
+### Notes on Graph Backends
+By default, the platform uses a **Relational (SQLite)** approach for maximum portability and zero-setup local development. 
+The codebase also includes full support for **FalkorDB** (a dedicated Graph database). You can spin it up via `make falkor-run` if you prefer true graph-native cypher queries.
 
-## Scraper (EventBridge → Scraper → SQS → graph)
-
-Package: `career_graph/scraper/`. Fetches job postings from Greenhouse, Lever,
-RemoteOK, and Arbeitnow, strips HTML, and normalizes to one shape. Any source
-failure falls back to fixtures (PRD rule); sources are capped per run.
-
-```bash
-# live scrape (needs a Greenhouse board token + Lever company slug)
-GREENHOUSE_BOARD_TOKEN=stripe LEVER_COMPANY=leverdemo make scrape \
-    SCRAPE_SOURCES="greenhouse lever remoteok arbeitnow" SCRAPE_LIMIT=3
-
-# then parse skills + write POSTING/REQUIRES into relational + FalkorDB
-make process    # or: python scripts/process_jobs.py --file fixtures/scraped/jobs.json
-
-# with a queue, scrape sends directly to SQS and the consumer picks it up
-SQS_QUEUE_URL=<queue-url> python scripts/run_scraper.py --sources greenhouse lever --limit 5
-```
-
-`career_graph/scraper/lambda_handler.py` is the EventBridge-triggered Lambda
-entry point (`{ "limit_per_source": 10, "sources": [...] }`); without
-`SQS_QUEUE_URL` it persists the scrape to `/tmp` for a local worker.
-
-## Candidate ingestion (resume + GitHub)
-
-Package: `career_graph/ingestion/` — `CandidateIngestor` is the shared handler
-used by the SQS consumers, scripts, and API. Skill tags go through the alias
-dictionary; writes land in the relational store and mirror to FalkorDB.
-
-```bash
-make ingest RESUME=fixtures/resume_sample.txt        # text or PDF (pypdf stand-in for Textract)
-make ingest GITHUB_USERNAME=kelseyhightower          # GitHub API -> projects + skills
-make ingest RESUME=fixtures/resume_sample.txt GITHUB_USERNAME=kelseyhightower
-```
-
-## Bedrock extraction
-
-Extraction is Bedrock-first when enabled, and falls back to deterministic
-heuristics otherwise (so the whole pipeline runs without AWS).
-
-```bash
-CAREER_GRAPH_USE_BEDROCK=1 python scripts/process_jobs.py --file fixtures/scraped/jobs.json
-```
-
-Model ids are configurable via `BEDROCK_RESUME_MODEL`, `BEDROCK_JD_MODEL`,
-`BEDROCK_GITHUB_MODEL`; debug fallback reasons with `BEDROCK_DEBUG=1`.
-
-## FalkorDB
-
-```bash
-make falkor-run     # docker run falkordb/falkordb (port 6379, password HackathonSecret2026)
-make falkor-verify  # init indexes, normalization check, inject fixtures, run match/gap queries
-```
-
-Ingestion consumers mirror writes into FalkorDB automatically when the container is up
-(best-effort; the relational store remains the source of truth locally).
-
-## Tests
-
-```bash
-make test    # or: pytest -q
-```
-
-## What is NOT built (vs PRD)
-
-The PRD also calls for grounded resume/cover-letter generation (“intelligence
-layer”), the Step Functions orchestration + EventBridge deploy config,
-a React/Amplify frontend with Cognito auth, and AWS Textract/CloudFormation
-infrastructure. Those are still open; scraper + ingestion (local) and the graph +
-matching layers are complete.
+### What is NOT built
+The PRD mentions Step Functions orchestration + EventBridge deploy config, and AWS Textract infrastructure. These AWS-native pipeline tools are still open for future development, but the core Intelligence Layer, Graph Matching, and Frontend are complete and ready for production!
