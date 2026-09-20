@@ -418,8 +418,8 @@ const JobCard: React.FC<JobMatch & { rank: number }> = ({
 
 const glassPanel: React.CSSProperties = {
   background: "rgba(0,0,0,0.48)",
-  backdropFilter: "blur(24px) saturate(140%)",
-  WebkitBackdropFilter: "blur(24px) saturate(140%)",
+  backdropFilter: "blur(5px) saturate(140%)",
+  WebkitBackdropFilter: "blur(5px) saturate(140%)",
   border: "1px solid rgba(255,255,255,0.09)",
   borderRadius: "20px",
   boxShadow:
