@@ -90,6 +90,3 @@ docker-compose.yml        # AWS Deployment orchestration
 ### Notes on Graph Backends
 By default, the platform uses a **Relational (SQLite)** approach for maximum portability and zero-setup local development. 
 The codebase also includes full support for **FalkorDB** (a dedicated Graph database). You can spin it up via `make falkor-run` if you prefer true graph-native cypher queries.
-
-### What is NOT built
-The PRD mentions Step Functions orchestration + EventBridge deploy config, and AWS Textract infrastructure. These AWS-native pipeline tools are still open for future development, but the core Intelligence Layer, Graph Matching, and Frontend are complete and ready for production!
