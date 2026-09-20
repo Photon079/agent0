@@ -545,8 +545,6 @@ def evidence_candidate(candidate_id: str, skills: Optional[str] = None):
         return {"candidate_id": candidate_id, "evidence": evidence_out, "backend": "sqlite"}
 
 
-# ---------------- Resume Tailoring Pipeline Endpoint ----------------
-
 class TailorResumeRequest(BaseModel):
     candidate_id: str
     job_id: str
@@ -648,4 +646,4 @@ def download_resume(filename: str):
     
     if os.path.exists(file_path):
         return FileResponse(file_path, filename=safe_filename)
-    raise HTTPException(status_code=404, detail="File not found")
+    raise HTTPException(status_code=404, detail="File not found")

@@ -1,0 +1,40 @@
+# Version control
+.git
+.gitignore
+
+# Environment variables
+.env
+.env.*
+*.env
+aws_live.env
+
+# Databases
+*.db
+*.sqlite
+career_graph.db
+career_graph.db-journal
+
+# Output / generated files
+output/
+dist/
+build/
+*.pdf
+*.tex
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# IDEs and OS files
+.vscode/
+.idea/
+.DS_Store

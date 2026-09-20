@@ -140,25 +140,34 @@ def match_jobs_by_skill_overlap(candidate_id: int, limit: int = 10):
             job_exp_source = job.experience_level or job.title or ""
             job_exp_tier = _exp_tier(job_exp_source)
             if cand_exp_tier >= 0 and job_exp_tier >= 0:
-                tier_diff = abs(cand_exp_tier - job_exp_tier)
-                if tier_diff == 1:
-                    score -= 1
-                elif tier_diff == 2:
-                    score -= 2
-                    penalty_reasons.append(f"Requires {job.experience_level}")
-                elif tier_diff >= 3:
-                    score -= 4
-                    penalty_reasons.append(f"Requires {job.experience_level}")
+                tier_diff = cand_exp_tier - job_exp_tier
+                if tier_diff < 0: # Candidate is less experienced than job requires
+                    diff = abs(tier_diff)
+                    if diff == 1:
+                        score *= 0.7
+                        penalty_reasons.append(f"Stretch role ({job.experience_level})")
+                    elif diff == 2:
+                        score *= 0.3
+                        penalty_reasons.append(f"Major stretch ({job.experience_level})")
+                    elif diff >= 3:
+                        score *= 0.1
+                        penalty_reasons.append(f"Unlikely match ({job.experience_level})")
+                elif tier_diff > 0: # Candidate is MORE experienced than job requires
+                    if tier_diff == 1:
+                        score *= 0.9 # Slight penalty for being overqualified
+                    elif tier_diff >= 2:
+                        score *= 0.6
+                        penalty_reasons.append(f"Overqualified ({job.experience_level})")
             elif job.experience_level and not cand_exp_tier >= 0:
                 # Job has a level but candidate level is unknown — mild penalty
-                score -= 0.5
+                score *= 0.9
 
             # --- Location penalty ---
             if cand_loc and job.location:
                 j_loc = job.location.lower()
                 is_global = "global" in j_loc or j_loc in ("remote", "worldwide", "anywhere")
                 if not is_global and cand_loc not in j_loc and j_loc not in cand_loc:
-                    score -= 3
+                    score *= 0.5
                     penalty_reasons.append(f"Located in {job.location}")
 
             scored_jobs.append((job, score, penalty_reasons, overlap, match_pct))

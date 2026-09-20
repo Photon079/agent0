@@ -205,16 +205,25 @@ def extract_github_repos(repos: List[Dict[str, Any]]) -> Dict[str, Any]:
 def suggest_micro_project(job_skills: List[str], missing_skills: List[str], candidate_skills: List[str]) -> Dict[str, str]:
     """Suggest a small project to bridge the gap between candidate skills and job requirements."""
     if not USE_BEDROCK:
+        skills_str = ", ".join(missing_skills[:3])
         return {
-            "title": "Learn Missing Skills",
-            "description": f"Build a small project using {', '.join(missing_skills[:3])} to bridge the gap."
+            "title": f"Bridge the Gap: {skills_str} Project",
+            "description": (
+                f"Build a small project to learn {skills_str}. Start by reading the official documentation and "
+                f"following a tutorial on [freeCodeCamp](https://www.freecodecamp.org/news/search/?query={missing_skills[0]}). "
+                f"**Step 1**: Set up a basic Hello World. "
+                f"**Step 2**: Integrate {missing_skills[0]} with your existing knowledge of {candidate_skills[0] if candidate_skills else 'your preferred language'}. "
+                f"**Step 3**: Deploy it and add it to your GitHub to prove your proficiency."
+            )
         }
     
     system = (
         "You are a senior engineering manager. A candidate is applying for a job, but they are missing certain skills. "
         "Suggest a highly specific, actionable 'micro-project' they can build over a weekend to learn the missing skills "
         "and prove they can do the job. The project should ideally combine their existing skills with the missing ones. "
-        'Return ONLY valid JSON: {"title": "Project Name", "description": "1-2 paragraph description of what to build and how it uses the missing skills"}'
+        "Provide a detailed step-by-step guide on how to build it. "
+        "CRITICAL: You MUST include markdown links to good learning resources (e.g., official docs, freeCodeCamp, or specific tutorials) for the missing skills. "
+        'Return ONLY valid JSON: {"title": "Project Name", "description": "Detailed description with steps and markdown links to resources"}'
     )
     user = (
         f"Job requires: {', '.join(job_skills)}\n"
@@ -225,9 +234,16 @@ def suggest_micro_project(job_skills: List[str], missing_skills: List[str], cand
         raw = _converse(system, user, JD_MODEL)
         return _require_json(_parse_json_text(raw))
     except Exception:
+        skills_str = ", ".join(missing_skills[:3])
         return {
-            "title": "Learn Missing Skills",
-            "description": f"Build a small project using {', '.join(missing_skills[:3])} to bridge the gap."
+            "title": f"Bridge the Gap: {skills_str} Project",
+            "description": (
+                f"Build a small project to learn {skills_str}. Start by reading the official documentation and "
+                f"following a tutorial on [freeCodeCamp](https://www.freecodecamp.org/news/search/?query={missing_skills[0]}). "
+                f"**Step 1**: Set up a basic Hello World. "
+                f"**Step 2**: Integrate {missing_skills[0]} with your existing knowledge of {candidate_skills[0] if candidate_skills else 'your preferred language'}. "
+                f"**Step 3**: Deploy it and add it to your GitHub to prove your proficiency."
+            )
         }
 
 
