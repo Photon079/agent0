@@ -44,3 +44,6 @@ Thumbs.db
 *.swp
 .idea/
 .vscode/
+# Project Documentation
+PRD-*.md
+PRODUCT.md

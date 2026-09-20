@@ -38,3 +38,7 @@ yarn-error.log
 .vscode/
 .idea/
 .DS_Store
+
+# Project Documentation
+PRD-*.md
+PRODUCT.md
