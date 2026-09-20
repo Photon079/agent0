@@ -13,6 +13,32 @@ from career_graph.parsers.simple_resume_parser import SimpleResumeParser
 
 log = logging.getLogger(__name__)
 
+
+def _load_local_env() -> None:
+    """Load local KEY=VALUE settings when the API is started directly.
+
+    ``scripts/run_api.py`` already loads ``aws_live.env`` before Uvicorn
+    starts, but ``uvicorn career_graph.api.app:app`` imports this module
+    directly. Keep explicit shell variables authoritative and never log values.
+    """
+    env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "aws_live.env"))
+    if not os.path.exists(env_path):
+        return
+
+    with open(env_path, encoding="utf-8") as env_file:
+        for raw_line in env_file:
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip().strip("\"'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+
+
+_load_local_env()
+
 app = FastAPI(title="Career Graph API")
 
 # Enable CORS for local React/Vite dev and Amplify hosting

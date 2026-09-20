@@ -88,8 +88,30 @@ const ScrambledTitle: React.FC = () => {
   }, [])
 
   useEffect(() => {
-    if (mounted && scramblerRef.current) {
-      scramblerRef.current.setText('Stop Guessing. Prove Your Fit.')
+    if (!mounted || !scramblerRef.current) return
+
+    let active = true
+    const phrases = ['Stop Guessing', 'Prove Your Fit', 'Build', 'Evolve']
+
+    const pause = (duration: number) =>
+      new Promise<void>((resolve) => {
+        window.setTimeout(resolve, duration)
+      })
+
+    const animateLoop = async () => {
+      let phraseIndex = 0
+
+      while (active) {
+        await scramblerRef.current?.setText(phrases[phraseIndex])
+        await pause(850)
+        phraseIndex = (phraseIndex + 1) % phrases.length
+      }
+    }
+
+    void animateLoop()
+
+    return () => {
+      active = false
     }
   }, [mounted])
 
