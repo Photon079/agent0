@@ -28,8 +28,8 @@ interface JobMatch {
 
 interface EvidenceItem {
   skill: string;
-  project_evidence: { name: string; commits: number; url?: string }[];
-  experience_evidence: { role: string; company: string }[];
+  project_evidence: { name: string; commits?: number; url?: string; description?: string }[];
+  experience_evidence: { role: string; company: string; duration?: string }[];
 }
 
 interface KnowledgeGraphPageProps {

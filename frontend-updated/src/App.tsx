@@ -2,7 +2,7 @@ import { useState } from "react";
 import { WebcamPixelGrid } from "@/components/ui/webcam-pixel-grid";
 import ScrambledTitle from "@/components/ui/modern-animated-text-scramble";
 import { LiquidMetalButton } from "@/components/ui/liquid-metal-button";
-import { KnowledgeGraphPage } from "@/components/ui/knowledge-graph-page";
+import { KnowledgeGraphReferencePage } from "@/components/ui/knowledge-graph-reference-page";
 
 export function App() {
   const [githubUrl, setGithubUrl] = useState("");
@@ -53,7 +53,7 @@ export function App() {
 
   if (success) {
     return (
-      <KnowledgeGraphPage
+      <KnowledgeGraphReferencePage
         candidateId={candidateId}
         candidateName={candidateName || ingestedUsername}
         username={ingestedUsername}
