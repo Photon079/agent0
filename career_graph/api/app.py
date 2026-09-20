@@ -543,3 +543,95 @@ def evidence_candidate(candidate_id: str, skills: Optional[str] = None):
                 "experience_evidence": e_ev,
             })
         return {"candidate_id": candidate_id, "evidence": evidence_out, "backend": "sqlite"}
+
+
+# ---------------- Resume Tailoring Pipeline Endpoint ----------------
+
+class TailorResumeRequest(BaseModel):
+    candidate_id: str
+    job_id: str
+    output_filename: Optional[str] = "tailored_resume"
+
+
+@app.post("/tailor-resume")
+def tailor_resume_endpoint(req: TailorResumeRequest):
+    """Execute end-to-end Graph-Grounded Resume Tailoring Pipeline."""
+    from career_graph.resume import ResumePipelineOrchestrator
+    from career_graph.db import get_session
+    from career_graph.models import Candidate, JobPosting, Experience, Project, Skill
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+
+    try:
+        cand_id_int = int(str(req.candidate_id).replace("cand:", ""))
+        job_id_int = int(str(req.job_id).replace("job:", ""))
+    except ValueError:
+        return {"error": "Invalid candidate_id or job_id format"}
+
+    with get_session() as session:
+        cand = session.scalar(
+            select(Candidate)
+            .where(Candidate.id == cand_id_int)
+            .options(selectinload(Candidate.skills))
+        )
+        job = session.scalar(
+            select(JobPosting)
+            .where(JobPosting.id == job_id_int)
+            .options(selectinload(JobPosting.skills))
+        )
+
+        if not cand or not job:
+            return {"error": "Candidate or Job posting not found"}
+
+        # Fetch candidate experiences and projects
+        exps = session.scalars(select(Experience).where(Experience.candidate_id == cand_id_int)).all()
+        projs = session.scalars(select(Project).where(Project.candidate_id == cand_id_int).options(selectinload(Project.skills))).all()
+
+        candidate_data = {
+            "id": cand.id,
+            "name": cand.name,
+            "email": cand.email,
+            "location": cand.location,
+            "experience_level": cand.experience_level,
+            "skills": [s.canonical_name for s in cand.skills],
+            "experiences": [
+                {
+                    "title": e.title,
+                    "company": e.company,
+                    "start_date": e.start_date,
+                    "end_date": e.end_date,
+                    "description": e.description,
+                }
+                for e in exps
+            ],
+            "projects": [
+                {
+                    "name": p.name,
+                    "description": p.description,
+                    "url": p.url,
+                    "commits_count": p.commit_count,
+                    "skills": [s.canonical_name for s in p.skills],
+                }
+                for p in projs
+            ]
+        }
+
+        job_description = {
+            "id": job.id,
+            "title": job.title,
+            "company": job.company,
+            "description": job.description,
+            "required_skills": [s.canonical_name for s in job.skills],
+            "experience_level": job.experience_level,
+            "location": job.location,
+        }
+
+    # Execute orchestrator
+    orchestrator = ResumePipelineOrchestrator()
+    result = orchestrator.run_pipeline(
+        candidate_data=candidate_data,
+        job_description=job_description,
+        output_filename=req.output_filename or f"resume_cand{cand_id_int}_job{job_id_int}"
+    )
+
+    return result
