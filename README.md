@@ -1,4 +1,5 @@
 # Agent0: Graph-Grounded Career Intelligence
+Read indepth guide [from here](https://builder.aws.com/content/3Jaz4R1EoW3ktppd4lV7UMhwkNF/agent0-building-graph-grounded-career-intelligence-on-the-aws-open-source-stack)
 
 Agent0 is a next-generation career intelligence platform. It ingests a candidate's resume and GitHub profile, builds a powerful knowledge graph of their skills and projects, pulls active job postings, intelligently matches them by skill overlap and experience tier, and surfaces actionable skill gaps. 
 
